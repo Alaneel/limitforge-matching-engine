@@ -1,2 +1,2 @@
-#,InstrumentID,OpenPrice,ClosePrice,TotalVolume,VWAP,DayHigh,DayLow
-1,SIA,32.100000,NULL,7900,32.0835,32.1,31.9
+"#",InstrumentID,OpenPrice,ClosePrice,TotalVolume,VWAP,DayHigh,DayLow
+1,SIA,31.9,31.8,6700,32.059701492537314,32.2,31.9

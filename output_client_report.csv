@@ -1,5 +1,5 @@
 ClientID,InstrumentID,NetPosition
-A,SIA,3000
-B,SIA,-7900
+A,SIA,1800
+B,SIA,-5700
 C,SIA,4300
-E,SIA,600
+E,SIA,-400

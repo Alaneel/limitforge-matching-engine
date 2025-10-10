@@ -1,115 +1,154 @@
-# BOANEW
+# BOANEW Trading System
 
-BOANEW is a trading system that matches orders and executes transactions based on specific rules and market conditions. It provides functionality for morning auctions, real-time transactions, and evening auctions.
+A high-performance trading system that matches orders and executes transactions based on market rules. Now **rewritten in Java** with FIX protocol support and advanced concurrency features.
 
-## Features
+## 🚀 Features
 
-- Process client, instrument, and order data from CSV files
-- Filter orders based on currency and lot size requirements
-- Match buy and sell orders based on price compatibility and execute transactions
-- Handle position checks and reject orders that fail position checks
-- Generate output files for exchange report, client report, and instrument report
+- **Order Matching Engine**: Morning auction, real-time trading, and evening auction phases
+- **FIX Protocol Support**: Full FIX 4.4 implementation for institutional connectivity
+- **Advanced Concurrency**: Thread-safe operations using Java concurrent collections
+- **Position Management**: Real-time position tracking with validation
+- **CSV Processing**: Read orders from CSV files and generate comprehensive reports
+- **Comprehensive Logging**: Full audit trail using SLF4J and Logback
 
-## Project Structure
+## 📦 Quick Start
 
-<pre>
+```bash
+# Build the project
+mvn clean package
 
-.
-├── Client Report.csv
-├── Exchange Report.csv
-├── Instrument Report.csv
-├── LICENSE
-├── Pipfile
-├── Pipfile.lock
-├── README.md
-├── app.py
-├── csv.cpp
-├── csv.hpp
-├── input_clients.csv
-├── input_instruments.csv
-├── input_orders.csv
-├── input_orders2.csv
-├── output_client_report.csv
-├── output_client_report_test.csv
-├── output_exchange_report.csv
-├── output_exchange_report_test.csv
-├── output_instrument_report.csv
-├── output_instrument_report_test.csv
-├── proc
-├── proc.cpp
-├── proc.dSYM
-│   └── Contents
-│       ├── Info.plist
-│       └── Resources
-│           ├── DWARF
-│           │   └── proc
-│           └── Relocations
-│               └── aarch64
-│                   └── proc.yml
-├── proc_test
-├── proc_test.cpp
-├── validator
-├── validator.cpp
-├── validator_test
-├── validator_test.cpp
-└── visualization.py
+# Run the trading system
+java -jar target/boanew-trading-system-1.0.0.jar
+
+# Run with FIX protocol enabled
+java -Dfix.enabled=true -jar target/boanew-trading-system-1.0.0.jar
 ```
-</pre>
 
-## Getting Started
+## 📁 Project Structure
 
-These instructions will help you set up and run the project on your local machine.
+```
+BOANEW/
+├── src/main/java/com/trading/
+│   ├── model/              # Domain models (Client, Instrument, Order, Transaction)
+│   ├── csv/                # CSV reading and writing utilities
+│   ├── engine/             # Order matching engine with concurrency
+│   ├── fix/                # FIX protocol server and handlers
+│   └── TradingApplication  # Main application class
+├── src/main/resources/
+│   ├── logback.xml         # Logging configuration
+│   └── fix-server.cfg      # FIX server configuration
+├── input_*.csv             # Input data files
+├── output_*.csv            # Generated reports
+├── pom.xml                 # Maven build configuration
+├── README-JAVA.md          # Detailed Java documentation
+└── QUICKSTART.md           # Quick reference guide
+```
 
-### Prerequisites
+## 📊 Input Files
 
-- C++ compiler with C++20 support
-- Python 3.x
-- Pipenv (Python package manager)
+The system processes three CSV input files:
 
-### Installation
+### input_clients.csv
+Client information including currencies and position check settings
+```csv
+ClientID,Currencies,PositionCheck,Rating
+A,"USD,SGD",Y,1
+```
 
-1. Clone the repository:
+### input_instruments.csv
+Tradable instruments with currency and lot size
+```csv
+InstrumentID,Currency,LotSize
+SIA,SGD,100
+```
 
-> git clone https://github.com/your-username/BOA2024.git
+### input_orders.csv
+Order data with time, side, price, and quantity
+```csv
+Time,OrderID,Instrument,Quantity,Client,Price,Side
+9:00:01,A1,SIA,1500,A,Market,Buy
+```
 
-2. Change to the project directory:
+## 📈 Output Reports
 
-> cd BOANEW
+The system generates three comprehensive reports:
 
-3. Create a virtual environment using Pipenv:
+1. **output_exchange_report.csv** - Rejected orders with reasons
+2. **output_client_report.csv** - Final positions for each client
+3. **output_instrument_report.csv** - Trading statistics (VWAP, high/low, volume)
 
-> pipenv shell
+## 🔧 Requirements
 
-4. Install the required Python dependencies:
+- Java 17 or higher
+- Maven 3.6 or higher
 
-> pipenv install
+## 📚 Documentation
 
-### Usage
+- **[README-JAVA.md](README-JAVA.md)** - Complete Java implementation documentation
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick reference and examples
+- **[LICENSE](LICENSE)** - License information
 
-1. Prepare the input CSV files:
-- `input_clients.csv`: Contains client information
-- `input_instruments.csv`: Contains instrument information
-- `input_orders.csv`: Contains order information
+## 🎯 Key Technologies
 
-2. Run the C++ program to process the orders and generate output files:
+- **Java 17** - Modern Java features and APIs
+- **QuickFIX/J 2.3.1** - FIX protocol implementation
+- **Apache Commons CSV** - CSV parsing and generation
+- **SLF4J + Logback** - Comprehensive logging
+- **Maven** - Build and dependency management
 
-> g++ -std=c++20 proc.cpp csv.cpp -o proc
-> ./proc
+## 🔥 Concurrency Features
 
-3. Run the Python application to visualize the trading dashboard:
+- `ConcurrentHashMap` - Thread-safe client/instrument lookups
+- `PriorityBlockingQueue` - Lock-free priority order books
+- `ExecutorService` - Parallel processing (CPU-bound operations)
+- `AtomicInteger` - Lock-free order quantity updates
+- `ReentrantReadWriteLock` - Transaction consistency
 
-> python app.py
+## 📊 Trading Phases
 
-4. Open a web browser and navigate to `http://localhost:8050` to access the trading dashboard.
+### 1. Morning Auction (Before 9:30)
+- Collects all orders
+- Calculates optimal clearing price
+- Executes matching orders at clearing price
 
-### Testing
+### 2. Real-Time Trading (9:30 - 16:00)
+- Continuous order matching
+- Price-time priority
+- Immediate execution when prices cross
 
-The project includes unit tests and integration tests to ensure the correctness of the implemented functionality.
+### 3. Evening Auction (16:00 - 16:10)
+- Final order collection
+- Calculates closing price
+- Executes remaining trades
 
-To run the tests:
+## 🌐 FIX Protocol Integration
 
-> g++ -std=c++20 validator_test.cpp csv.cpp -o proc_test
-> ./validator_test
+The system supports FIX 4.4 protocol for institutional order submission:
 
-> g++ -std=c++20 proc_test.cpp csv.cpp -o proc_test
-> ./proc_test
+- **Port**: 9876 (configurable)
+- **Message Types**: New Order Single (35=D)
+- **Execution Reports**: Sent for all order state changes
+- **Session Management**: Automatic heartbeats and reconnection
+
+See [README-JAVA.md](README-JAVA.md) for detailed FIX configuration.
+
+## 🐛 Troubleshooting
+
+**Port conflict**: Change `SocketAcceptPort` in `src/main/resources/fix-server.cfg`
+
+**Memory issues**: Run with more heap: `java -Xmx2g -jar target/boanew-trading-system-1.0.0.jar`
+
+**CSV not found**: Ensure input CSV files are in the project root directory
+
+## 📝 License
+
+See [LICENSE](LICENSE) file for details.
+
+## 🔄 Version History
+
+- **v2.0** (Current) - Java implementation with FIX protocol and concurrency
+- **v1.0** - Original C++ implementation (deprecated)
+
+---
+
+For detailed implementation information, see **[README-JAVA.md](README-JAVA.md)**
