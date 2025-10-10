@@ -1,0 +1,62 @@
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.log
+target/
+*.iml
+.idea/
+.classpath
+.project
+.settings/
+
+# Maven
+.mvn/
+mvn.cmd
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+dependency-reduced-pom.xml
+
+# FIX logs and data
+fix-logs/
+fix-store/
+logs/
+
+# QuickFIX
+FIX*.log
+*.received
+*.sent
+*.event
+
+# Output files
+output_*.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+*.swp
+*.swo
+*~
+.vscode/
+
+# C++ build artifacts (old)
+*.o
+*.out
+*.dSYM/
+proc
+proc_test
+validator
+validator_test
+csv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+Pipfile.lock
