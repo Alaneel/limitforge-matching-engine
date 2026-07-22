@@ -66,8 +66,8 @@ class OrderMatchingEngineTest {
 
     @Test
     void matchesMarketSellAtOpposingLimitPrice() {
-        Order marketSell = order(
-            "S1", "SELLER", 100, Double.MAX_VALUE, Order.Side.SELL, "09:31:00"
+        Order marketSell = marketOrder(
+            "S1", "SELLER", 100, Order.Side.SELL, "09:31:00"
         );
         Order limitBuy = order("B1", "BUYER", 100, 10.0, Order.Side.BUY, "09:32:00");
 
@@ -94,7 +94,7 @@ class OrderMatchingEngineTest {
     @Test
     void auctionChoosesPriceWithMaximumExecutableVolume() {
         List<Order> orders = List.of(
-            order("B1", "BUYER", 100, Double.MAX_VALUE, Order.Side.BUY, "09:00:00"),
+            marketOrder("B1", "BUYER", 100, Order.Side.BUY, "09:00:00"),
             order("B2", "BUYER", 100, 10.0, Order.Side.BUY, "09:01:00"),
             order("S1", "SELLER", 100, 9.0, Order.Side.SELL, "09:02:00"),
             order("S2", "SELLER2", 100, 10.0, Order.Side.SELL, "09:03:00")
@@ -135,7 +135,7 @@ class OrderMatchingEngineTest {
 
     @Test
     void rejectsCurrencyAndLotSizeViolations() {
-        Order wrongCurrency = new Order(
+        Order wrongCurrency = Order.limit(
             "C1", "BUYER", "USD_STOCK", 100, 10.0, Order.Side.BUY, LocalTime.of(10, 0)
         );
         Order wrongLot = order("L1", "BUYER", 50, 10.0, Order.Side.BUY, "10:00:01");
@@ -176,12 +176,29 @@ class OrderMatchingEngineTest {
         Order.Side side,
         String time
     ) {
-        return new Order(
+        return Order.limit(
             orderId,
             clientId,
             "SIA",
             quantity,
             price,
+            side,
+            LocalTime.parse(time)
+        );
+    }
+
+    private Order marketOrder(
+        String orderId,
+        String clientId,
+        int quantity,
+        Order.Side side,
+        String time
+    ) {
+        return Order.market(
+            orderId,
+            clientId,
+            "SIA",
+            quantity,
             side,
             LocalTime.parse(time)
         );

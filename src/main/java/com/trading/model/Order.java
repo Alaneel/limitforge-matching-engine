@@ -13,6 +13,7 @@ public class Order {
     private final int quantity;
     private final AtomicInteger remainingQuantity;
     private final double price;
+    private final Type type;
     private final Side side;
     private final LocalTime time;
     private volatile boolean valid;
@@ -22,17 +23,32 @@ public class Order {
         BUY, SELL
     }
 
-    public Order(String orderId, String clientId, String instrumentId,
-                 int quantity, double price, Side side, LocalTime time) {
+    public enum Type {
+        MARKET, LIMIT
+    }
+
+    private Order(String orderId, String clientId, String instrumentId,
+                  int quantity, double price, Type type, Side side, LocalTime time) {
         this.orderId = orderId;
         this.clientId = clientId;
         this.instrumentId = instrumentId;
         this.quantity = quantity;
         this.remainingQuantity = new AtomicInteger(quantity);
         this.price = price;
+        this.type = type;
         this.side = side;
         this.time = time;
         this.valid = true;
+    }
+
+    public static Order market(String orderId, String clientId, String instrumentId,
+                               int quantity, Side side, LocalTime time) {
+        return new Order(orderId, clientId, instrumentId, quantity, 0, Type.MARKET, side, time);
+    }
+
+    public static Order limit(String orderId, String clientId, String instrumentId,
+                              int quantity, double price, Side side, LocalTime time) {
+        return new Order(orderId, clientId, instrumentId, quantity, price, Type.LIMIT, side, time);
     }
 
     public String getOrderId() {
@@ -73,7 +89,11 @@ public class Order {
     }
 
     public boolean isMarketOrder() {
-        return price == Double.MAX_VALUE;
+        return type == Type.MARKET;
+    }
+
+    public Type getType() {
+        return type;
     }
 
     public Side getSide() {

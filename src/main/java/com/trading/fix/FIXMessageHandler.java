@@ -79,10 +79,12 @@ public class FIXMessageHandler extends MessageCracker implements Application {
         double orderQty = message.getOrderQty().getValue();
         OrdType ordType = message.getOrdType();
 
-        double price;
+        boolean isMarketOrder;
+        double price = 0;
         if (ordType.getValue() == OrdType.MARKET) {
-            price = Double.MAX_VALUE;
+            isMarketOrder = true;
         } else if (ordType.getValue() == OrdType.LIMIT) {
+            isMarketOrder = false;
             price = message.getPrice().getValue();
         } else {
             logger.warn("Unsupported order type: {}", ordType.getValue());
@@ -99,15 +101,9 @@ public class FIXMessageHandler extends MessageCracker implements Application {
         Order.Side orderSide = (side.getValue() == Side.BUY) ? Order.Side.BUY : Order.Side.SELL;
         LocalTime time = LocalTime.now();
 
-        Order order = new Order(
-            clOrdID,
-            clientId,
-            symbol,
-            (int) orderQty,
-            price,
-            orderSide,
-            time
-        );
+        Order order = isMarketOrder
+            ? Order.market(clOrdID, clientId, symbol, (int) orderQty, orderSide, time)
+            : Order.limit(clOrdID, clientId, symbol, (int) orderQty, price, orderSide, time);
 
         logger.info("Created order from FIX message: {}", order);
 

@@ -88,13 +88,6 @@ public final class CSVReader {
         try (CSVParser parser = parse(fileName)) {
             for (CSVRecord record : parser) {
                 String rawPrice = required(record, "Price");
-                double price;
-                if (rawPrice.equalsIgnoreCase("Market")) {
-                    price = Double.MAX_VALUE;
-                } else {
-                    price = positiveDouble(record, "Price");
-                }
-
                 Order.Side side;
                 String rawSide = required(record, "Side");
                 if (rawSide.equalsIgnoreCase("Buy")) {
@@ -112,15 +105,21 @@ public final class CSVReader {
                     throw invalid(record, "Time must use H:mm:ss format", e);
                 }
 
-                orders.add(new Order(
-                    required(record, "OrderID"),
-                    required(record, "Client"),
-                    required(record, "Instrument"),
-                    positiveInt(record, "Quantity"),
-                    price,
-                    side,
-                    time
-                ));
+                String orderId = required(record, "OrderID");
+                String clientId = required(record, "Client");
+                String instrumentId = required(record, "Instrument");
+                int quantity = positiveInt(record, "Quantity");
+                orders.add(rawPrice.equalsIgnoreCase("Market")
+                    ? Order.market(orderId, clientId, instrumentId, quantity, side, time)
+                    : Order.limit(
+                        orderId,
+                        clientId,
+                        instrumentId,
+                        quantity,
+                        positiveDouble(record, "Price"),
+                        side,
+                        time
+                    ));
             }
         }
         return orders;
