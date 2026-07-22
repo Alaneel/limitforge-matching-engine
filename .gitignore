@@ -32,6 +32,7 @@ FIX*.log
 
 # Output files
 output_*.csv
+/output_session.json
 
 # OS
 .DS_Store

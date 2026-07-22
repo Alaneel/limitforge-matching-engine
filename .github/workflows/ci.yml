@@ -38,6 +38,13 @@ jobs:
           java -Dsession.report=/tmp/limitforge-session.json -jar target/limitforge-engine-1.0.0.jar
           cmp /tmp/limitforge-session.json ui/public/session.json
 
+      - name: Smoke-test benchmark harness
+        run: |
+          java -Dlogback.configurationFile=logback-benchmark.xml \
+            -cp target/limitforge-engine-1.0.0.jar \
+            com.trading.benchmark.MatchingEngineBenchmark \
+            --orders 1000 --warmup 1 --iterations 2
+
   dashboard:
     name: Build and test dashboard (Node 22)
     runs-on: ubuntu-latest

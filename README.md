@@ -12,6 +12,8 @@ The repository also includes an interactive web dashboard for exploring a sample
 
 The dashboard is backed by a deterministic JSON snapshot produced by the Java engine itself. CI regenerates the snapshot and rejects changes when the UI fixture no longer matches engine output.
 
+The included end-to-end benchmark currently records a local reference result of approximately **822k orders/second** for a deterministic 20,000-order crossing workload. See the methodology and limitations before comparing results.
+
 ## 🚀 Features
 
 - **Order Matching Engine**: Morning auction, real-time trading, and evening auction phases
@@ -20,6 +22,7 @@ The dashboard is backed by a deterministic JSON snapshot produced by the Java en
 - **Position Management**: Real-time position tracking with validation
 - **CSV Processing**: Read orders from CSV files and generate comprehensive reports
 - **Comprehensive Logging**: Full audit trail using SLF4J and Logback
+- **Reproducible Benchmarking**: Dependency-free throughput harness with environment metadata
 
 ## 📦 Quick Start
 
@@ -114,6 +117,7 @@ The system generates three comprehensive reports:
 - **[README-JAVA.md](README-JAVA.md)** - Complete Java implementation documentation
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick reference and examples
 - **[LICENSE](LICENSE)** - License information
+- **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)** - Benchmark methodology and reproduction guide
 
 ## 🎯 Key Technologies
 
