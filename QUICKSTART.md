@@ -1,4 +1,4 @@
-# Quick Start Guide - BOANEW Java Trading System
+# Quick Start Guide - LimitForge
 
 ## 🚀 Run the Application
 
@@ -8,13 +8,13 @@
 mvn clean package
 
 # Run the trading system
-java -jar target/boanew-trading-system-1.0.0.jar
+java -jar target/limitforge-engine-1.0.0.jar
 ```
 
 ### With FIX Protocol
 ```bash
 # Enable FIX server on port 9876
-java -Dfix.enabled=true -jar target/boanew-trading-system-1.0.0.jar
+java -Dfix.enabled=true -jar target/limitforge-engine-1.0.0.jar
 ```
 
 ## 📊 Expected Output

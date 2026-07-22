@@ -30,7 +30,7 @@ public class TradingApplication {
     private static final String FIX_CONFIG_FILE = "src/main/resources/fix-server.cfg";
 
     public static void main(String[] args) {
-        logger.info("Starting BOANEW Trading System");
+        logger.info("Starting LimitForge Matching Engine");
 
         try {
             // Load data

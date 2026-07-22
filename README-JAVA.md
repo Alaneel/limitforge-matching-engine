@@ -1,4 +1,4 @@
-# BOANEW Trading System - Java Implementation
+# LimitForge - Java Implementation
 
 A high-performance trading system rewritten in Java with FIX protocol support and advanced concurrency features.
 
@@ -50,7 +50,7 @@ mvn test
 mvn clean package
 ```
 
-This will create `target/boanew-trading-system-1.0.0.jar` with all dependencies included.
+This will create `target/limitforge-engine-1.0.0.jar` with all dependencies included.
 
 ## Running the Application
 
@@ -59,7 +59,7 @@ This will create `target/boanew-trading-system-1.0.0.jar` with all dependencies 
 Process orders from CSV files:
 
 ```bash
-java -jar target/boanew-trading-system-1.0.0.jar
+java -jar target/limitforge-engine-1.0.0.jar
 ```
 
 Or using Maven:
@@ -73,7 +73,7 @@ mvn exec:java -Dexec.mainClass="com.trading.TradingApplication"
 Enable FIX protocol server:
 
 ```bash
-java -Dfix.enabled=true -jar target/boanew-trading-system-1.0.0.jar
+java -Dfix.enabled=true -jar target/limitforge-engine-1.0.0.jar
 ```
 
 The FIX server will listen on port 9876 (configurable in `fix-server.cfg`).
@@ -127,7 +127,7 @@ Edit `src/main/resources/fix-server.cfg` to customize:
 Send New Order Single (35=D) messages:
 
 ```
-8=FIX.4.4|9=XXX|35=D|49=CLIENT|56=BOANEW_SERVER|34=1|52=20250101-12:00:00|
+8=FIX.4.4|9=XXX|35=D|49=CLIENT|56=LIMITFORGE|34=1|52=20250101-12:00:00|
 11=ORDER123|55=SIA|54=1|38=100|40=2|44=32.5|1=CLIENT_A|10=XXX|
 ```
 
@@ -146,7 +146,7 @@ You can test the FIX server using QuickFIX/J executor or any FIX client:
 
 ```bash
 # Start server with FIX enabled
-java -Dfix.enabled=true -jar target/boanew-trading-system-1.0.0.jar
+java -Dfix.enabled=true -jar target/limitforge-engine-1.0.0.jar
 ```
 
 ## Trading Phases

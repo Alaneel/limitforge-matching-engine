@@ -1,6 +1,8 @@
-# BOANEW Trading System
+# LimitForge
 
-A high-performance trading system that matches orders and executes transactions based on market rules. Now **rewritten in Java** with FIX protocol support and advanced concurrency features.
+**A Java order matching engine with auction and continuous trading.**
+
+LimitForge is an educational exchange simulator that processes market and limit orders through opening auctions, price-time-priority continuous matching, and closing auctions. It also includes CSV workflows and experimental FIX 4.4 connectivity.
 
 ## 🚀 Features
 
@@ -18,16 +20,16 @@ A high-performance trading system that matches orders and executes transactions 
 mvn clean package
 
 # Run the trading system
-java -jar target/boanew-trading-system-1.0.0.jar
+java -jar target/limitforge-engine-1.0.0.jar
 
 # Run with FIX protocol enabled
-java -Dfix.enabled=true -jar target/boanew-trading-system-1.0.0.jar
+java -Dfix.enabled=true -jar target/limitforge-engine-1.0.0.jar
 ```
 
 ## 📁 Project Structure
 
 ```
-BOANEW/
+limitforge-matching-engine/
 ├── src/main/java/com/trading/
 │   ├── model/              # Domain models (Client, Instrument, Order, Transaction)
 │   ├── csv/                # CSV reading and writing utilities
@@ -136,7 +138,7 @@ See [README-JAVA.md](README-JAVA.md) for detailed FIX configuration.
 
 **Port conflict**: Change `SocketAcceptPort` in `src/main/resources/fix-server.cfg`
 
-**Memory issues**: Run with more heap: `java -Xmx2g -jar target/boanew-trading-system-1.0.0.jar`
+**Memory issues**: Run with more heap: `java -Xmx2g -jar target/limitforge-engine-1.0.0.jar`
 
 **CSV not found**: Ensure input CSV files are in the project root directory
 

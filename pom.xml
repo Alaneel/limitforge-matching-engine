@@ -5,12 +5,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.trading</groupId>
-    <artifactId>boanew-trading-system</artifactId>
+    <artifactId>limitforge-engine</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>BOANEW Trading System</name>
-    <description>Trading system with FIX protocol support and concurrency</description>
+    <name>LimitForge</name>
+    <description>Java order matching engine with auction, continuous trading, and FIX support</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
