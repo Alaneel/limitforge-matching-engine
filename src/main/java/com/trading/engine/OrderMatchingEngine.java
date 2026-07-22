@@ -68,43 +68,46 @@ public class OrderMatchingEngine {
     }
 
     private PriorityBlockingQueue<Order> createBuyComparator() {
-        return new PriorityBlockingQueue<>(100, (a, b) -> {
-            if (a.getPrice() != b.getPrice()) {
-                return Double.compare(b.getPrice(), a.getPrice()); // Higher price first
-            }
-            return Integer.compare(clients.get(b.getClientId()).getRating(),
-                                 clients.get(a.getClientId()).getRating());
-        });
+        return new PriorityBlockingQueue<>(100, buyOrderComparator());
     }
 
     private PriorityBlockingQueue<Order> createSellComparator() {
-        return new PriorityBlockingQueue<>(100, (a, b) -> {
-            if (a.getPrice() != b.getPrice()) {
-                return Double.compare(a.getPrice(), b.getPrice()); // Lower price first
-            }
-            return Integer.compare(clients.get(b.getClientId()).getRating(),
-                                 clients.get(a.getClientId()).getRating());
-        });
+        return new PriorityBlockingQueue<>(100, sellOrderComparator());
     }
 
     private PriorityBlockingQueue<Order> createRealTimeBuyComparator() {
-        return new PriorityBlockingQueue<>(100, (a, b) -> {
-            if (a.getPrice() != b.getPrice()) {
-                return Double.compare(b.getPrice(), a.getPrice()); // Higher price first
-            }
-            return Integer.compare(clients.get(b.getClientId()).getRating(),
-                                 clients.get(a.getClientId()).getRating());
-        });
+        return new PriorityBlockingQueue<>(100, buyOrderComparator());
     }
 
     private PriorityBlockingQueue<Order> createRealTimeSellComparator() {
-        return new PriorityBlockingQueue<>(100, (a, b) -> {
-            if (a.getPrice() != b.getPrice()) {
-                return Double.compare(a.getPrice(), b.getPrice()); // Lower price first
+        return new PriorityBlockingQueue<>(100, sellOrderComparator());
+    }
+
+    private Comparator<Order> buyOrderComparator() {
+        return (a, b) -> {
+            if (a.isMarketOrder() != b.isMarketOrder()) {
+                return a.isMarketOrder() ? -1 : 1;
             }
-            return Integer.compare(clients.get(b.getClientId()).getRating(),
-                                 clients.get(a.getClientId()).getRating());
-        });
+            int priceComparison = Double.compare(b.getPrice(), a.getPrice());
+            return priceComparison != 0 ? priceComparison : compareByTimeThenId(a, b);
+        };
+    }
+
+    private Comparator<Order> sellOrderComparator() {
+        return (a, b) -> {
+            if (a.isMarketOrder() != b.isMarketOrder()) {
+                return a.isMarketOrder() ? -1 : 1;
+            }
+            int priceComparison = Double.compare(a.getPrice(), b.getPrice());
+            return priceComparison != 0 ? priceComparison : compareByTimeThenId(a, b);
+        };
+    }
+
+    private int compareByTimeThenId(Order a, Order b) {
+        int timeComparison = a.getTime().compareTo(b.getTime());
+        return timeComparison != 0
+            ? timeComparison
+            : a.getOrderId().compareTo(b.getOrderId());
     }
 
     public void processOrders(List<Order> orders) {
@@ -399,7 +402,7 @@ public class OrderMatchingEngine {
             Order sellOrder = sellBook.peek();
 
             if (buyOrder != null && sellOrder != null) {
-                if (sellOrder.getPrice() <= buyOrder.getPrice()) {
+                if (canMatch(buyOrder, sellOrder)) {
                     buyOrder = buyBook.poll();
                     sellOrder = sellBook.poll();
 
@@ -407,18 +410,23 @@ public class OrderMatchingEngine {
                     double price;
                     LocalTime time;
 
-                    if (sellOrder.getTime().isBefore(buyOrder.getTime())) {
+                    if (sellOrder.isMarketOrder() && buyOrder.isMarketOrder()) {
+                        // There is no reference price for two opposing market orders.
+                        buyBook.offer(buyOrder);
+                        sellBook.offer(sellOrder);
+                        continue;
+                    } else if (sellOrder.isMarketOrder()) {
+                        price = buyOrder.getPrice();
+                        time = laterTime(buyOrder, sellOrder);
+                    } else if (buyOrder.isMarketOrder()) {
+                        price = sellOrder.getPrice();
+                        time = laterTime(buyOrder, sellOrder);
+                    } else if (sellOrder.getTime().isBefore(buyOrder.getTime())) {
                         price = sellOrder.getPrice();
                         time = buyOrder.getTime();
-                        if (sellOrder.isMarketOrder()) {
-                            price = buyOrder.getPrice();
-                        }
                     } else {
                         price = buyOrder.getPrice();
                         time = sellOrder.getTime();
-                        if (buyOrder.isMarketOrder()) {
-                            price = sellOrder.getPrice();
-                        }
                     }
 
                     int quantity = Math.min(buyOrder.getRemainingQuantity(), sellOrder.getRemainingQuantity());
@@ -439,6 +447,16 @@ public class OrderMatchingEngine {
         }
 
         return anyMatch;
+    }
+
+    private boolean canMatch(Order buyOrder, Order sellOrder) {
+        return buyOrder.isMarketOrder()
+            || sellOrder.isMarketOrder()
+            || sellOrder.getPrice() <= buyOrder.getPrice();
+    }
+
+    private LocalTime laterTime(Order first, Order second) {
+        return first.getTime().isAfter(second.getTime()) ? first.getTime() : second.getTime();
     }
 
     private void processEveningAuction(List<Order> orders) {

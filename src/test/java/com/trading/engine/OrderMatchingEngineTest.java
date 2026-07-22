@@ -23,7 +23,8 @@ class OrderMatchingEngineTest {
     void setUp() {
         Map<String, Client> clients = Map.of(
             "BUYER", new Client("BUYER", Set.of("SGD"), false, 1),
-            "SELLER", new Client("SELLER", Set.of("SGD"), false, 1)
+            "SELLER", new Client("SELLER", Set.of("SGD"), false, 1),
+            "SELLER2", new Client("SELLER2", Set.of("SGD"), false, 10)
         );
         Map<String, Instrument> instruments = Map.of(
             "SIA", new Instrument("SIA", "SGD", 100)
@@ -61,6 +62,33 @@ class OrderMatchingEngineTest {
         assertEquals(1, engine.getTransactions().size());
         assertEquals(100, sell.getRemainingQuantity());
         assertEquals(0, buy.getRemainingQuantity());
+    }
+
+    @Test
+    void matchesMarketSellAtOpposingLimitPrice() {
+        Order marketSell = order(
+            "S1", "SELLER", 100, Double.MAX_VALUE, Order.Side.SELL, "09:31:00"
+        );
+        Order limitBuy = order("B1", "BUYER", 100, 10.0, Order.Side.BUY, "09:32:00");
+
+        engine.processOrders(List.of(marketSell, limitBuy));
+
+        assertEquals(1, engine.getTransactions().size());
+        assertEquals(10.0, engine.getTransactions().get(0).getPrice());
+        assertEquals(LocalTime.of(9, 32), engine.getTransactions().get(0).getTime());
+    }
+
+    @Test
+    void givesOlderOrderPriorityAtTheSamePrice() {
+        Order olderSell = order("S1", "SELLER", 100, 10.0, Order.Side.SELL, "09:31:00");
+        Order newerSell = order("S2", "SELLER2", 100, 10.0, Order.Side.SELL, "09:31:01");
+        Order buy = order("B1", "BUYER", 100, 10.0, Order.Side.BUY, "09:32:00");
+
+        engine.processOrders(List.of(newerSell, olderSell, buy));
+
+        assertEquals(1, engine.getTransactions().size());
+        assertEquals("SELLER", engine.getTransactions().get(0).getFromClientId());
+        assertEquals(100, newerSell.getRemainingQuantity());
     }
 
     @Test
