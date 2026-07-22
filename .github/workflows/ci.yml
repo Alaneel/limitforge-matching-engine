@@ -32,3 +32,32 @@ jobs:
 
       - name: Verify project
         run: mvn --batch-mode --no-transfer-progress clean verify
+
+  dashboard:
+    name: Build and test dashboard (Node 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: ui
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint dashboard
+        run: npm run lint
+
+      - name: Build and test dashboard
+        run: npm test

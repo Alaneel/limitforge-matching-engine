@@ -8,6 +8,8 @@
 
 LimitForge is an educational exchange simulator that processes market and limit orders through opening auctions, price-time-priority continuous matching, and closing auctions. It also includes CSV workflows and experimental FIX 4.4 connectivity.
 
+The repository also includes an interactive web dashboard for exploring a sample session, order-book depth, executions, and risk controls.
+
 ## 🚀 Features
 
 - **Order Matching Engine**: Morning auction, real-time trading, and evening auction phases
@@ -28,6 +30,11 @@ java -jar target/limitforge-engine-1.0.0.jar
 
 # Run with FIX protocol enabled
 java -Dfix.enabled=true -jar target/limitforge-engine-1.0.0.jar
+
+# Run the dashboard (in another terminal)
+cd ui
+npm ci
+npm run dev
 ```
 
 ## 📁 Project Structure
@@ -43,6 +50,7 @@ limitforge-matching-engine/
 ├── src/main/resources/
 │   ├── logback.xml         # Logging configuration
 │   └── fix-server.cfg      # FIX server configuration
+├── ui/                     # Interactive Next.js/vinext dashboard
 ├── input_*.csv             # Input data files
 ├── output_*.csv            # Generated reports
 ├── pom.xml                 # Maven build configuration
@@ -87,6 +95,7 @@ The system generates three comprehensive reports:
 
 - Java 17 or higher
 - Maven 3.6 or higher
+- Node.js 22.13 or higher (dashboard only)
 
 ## 📚 Documentation
 
