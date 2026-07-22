@@ -207,9 +207,26 @@ public class OrderMatchingEngine {
         for (String instrumentId : instruments.keySet()) {
             Double bestPrice = bestPrices.get(instrumentId);
             if (bestPrice != null && bestPrice > 0) {
-                executeMorningAuctionTransactions(instrumentId, bestPrice);
+                executeAuctionTransactions(
+                    instrumentId,
+                    bestPrice,
+                    LocalTime.of(9, 30),
+                    true
+                );
                 openPrices.put(instrumentId, bestPrice);
+            } else {
+                moveAuctionBooksToContinuousTrading(instrumentId);
             }
+        }
+    }
+
+    private void moveAuctionBooksToContinuousTrading(String instrumentId) {
+        Order order;
+        while ((order = buyOrderBooks.get(instrumentId).poll()) != null) {
+            realTimeBuyBooks.get(instrumentId).offer(order);
+        }
+        while ((order = sellOrderBooks.get(instrumentId).poll()) != null) {
+            realTimeSellBooks.get(instrumentId).offer(order);
         }
     }
 
@@ -245,47 +262,83 @@ public class OrderMatchingEngine {
         List<Order> buyList = new ArrayList<>(buyBook);
         List<Order> sellList = new ArrayList<>(sellBook);
 
+        buyList.sort(buyOrderComparator());
+        sellList.sort(sellOrderComparator());
+
         // Filter for position check
         sellList.removeIf(order -> {
             Client client = clients.get(order.getClientId());
-            return client.isPositionCheck() && client.getPosition(instrumentId) < order.getQuantity();
+            return client.isPositionCheck()
+                && client.getPosition(instrumentId) < order.getRemainingQuantity();
         });
 
         if (buyList.isEmpty() || sellList.isEmpty()) {
             return 0;
         }
 
-        double maxPrice = 0;
-        int maxVolume = 0;
-        int buyAccumulate = 0;
-        int sellAccumulate = 0;
+        SortedSet<Double> candidatePrices = new TreeSet<>();
+        buyList.stream()
+            .filter(order -> !order.isMarketOrder())
+            .map(Order::getPrice)
+            .forEach(candidatePrices::add);
+        sellList.stream()
+            .filter(order -> !order.isMarketOrder())
+            .map(Order::getPrice)
+            .forEach(candidatePrices::add);
 
-        int sellIndex = 0;
-        for (int i = 0; i < buyList.size(); i++) {
-            Order buyOrder = buyList.get(i);
-            buyAccumulate += buyOrder.getQuantity();
+        if (candidatePrices.isEmpty()) {
+            return 0;
+        }
 
-            while (sellIndex < sellList.size() &&
-                   sellList.get(sellIndex).getPrice() <= buyOrder.getPrice()) {
-                sellAccumulate += sellList.get(sellIndex).getQuantity();
-                sellIndex++;
-            }
-
-            int volume = Math.min(buyAccumulate, sellAccumulate);
-            if (volume >= maxVolume) {
-                maxVolume = volume;
-                double price = buyOrder.getPrice();
-                if (buyOrder.isMarketOrder() && sellIndex > 0) {
-                    price = sellList.get(sellIndex - 1).getPrice();
-                }
-                maxPrice = price;
+        double referencePrice = referencePriceFor(instrumentId);
+        ClearingCandidate best = null;
+        for (double candidatePrice : candidatePrices) {
+            long buyVolume = executableBuyVolume(buyList, candidatePrice);
+            long sellVolume = executableSellVolume(sellList, candidatePrice);
+            ClearingCandidate candidate = new ClearingCandidate(
+                candidatePrice,
+                Math.min(buyVolume, sellVolume),
+                Math.abs(buyVolume - sellVolume),
+                referencePrice > 0 ? Math.abs(candidatePrice - referencePrice) : 0
+            );
+            if (candidate.isBetterThan(best)) {
+                best = candidate;
             }
         }
 
-        return maxPrice;
+        return best != null && best.volume() > 0 ? best.price() : 0;
     }
 
-    private void executeMorningAuctionTransactions(String instrumentId, double price) {
+    private long executableBuyVolume(List<Order> orders, double price) {
+        return orders.stream()
+            .filter(order -> order.isMarketOrder() || order.getPrice() >= price)
+            .mapToLong(Order::getRemainingQuantity)
+            .sum();
+    }
+
+    private long executableSellVolume(List<Order> orders, double price) {
+        return orders.stream()
+            .filter(order -> order.isMarketOrder() || order.getPrice() <= price)
+            .mapToLong(Order::getRemainingQuantity)
+            .sum();
+    }
+
+    private double referencePriceFor(String instrumentId) {
+        for (int index = transactions.size() - 1; index >= 0; index--) {
+            Transaction transaction = transactions.get(index);
+            if (transaction.getInstrumentId().equals(instrumentId)) {
+                return transaction.getPrice();
+            }
+        }
+        return openPrices.getOrDefault(instrumentId, 0.0);
+    }
+
+    private void executeAuctionTransactions(
+        String instrumentId,
+        double price,
+        LocalTime executionTime,
+        boolean carryRemainderToContinuousTrading
+    ) {
         PriorityBlockingQueue<Order> buyBook = buyOrderBooks.get(instrumentId);
         PriorityBlockingQueue<Order> sellBook = sellOrderBooks.get(instrumentId);
 
@@ -295,27 +348,29 @@ public class OrderMatchingEngine {
         // Collect orders that match the price
         Order buy;
         while ((buy = buyBook.poll()) != null) {
-            if (buy.getPrice() >= price) {
-                // Check position for sell orders only
-                Client client = clients.get(buy.getClientId());
+            if (buy.isMarketOrder() || buy.getPrice() >= price) {
                 buyList.add(buy);
-            } else {
+            } else if (carryRemainderToContinuousTrading) {
                 realTimeBuyBooks.get(instrumentId).offer(buy);
             }
         }
 
         Order sell;
         while ((sell = sellBook.poll()) != null) {
-            if (sell.getPrice() <= price) {
+            if (sell.isMarketOrder() || sell.getPrice() <= price) {
                 Client client = clients.get(sell.getClientId());
-                if (client.isPositionCheck() && client.getPosition(instrumentId) < sell.getQuantity()) {
+                if (client.isPositionCheck()
+                    && client.getPosition(instrumentId) < sell.getRemainingQuantity()) {
                     continue;
                 }
                 sellList.add(sell);
-            } else {
+            } else if (carryRemainderToContinuousTrading) {
                 realTimeSellBooks.get(instrumentId).offer(sell);
             }
         }
+
+        buyList.sort(buyOrderComparator());
+        sellList.sort(sellOrderComparator());
 
         // Match orders
         int buyIndex = 0;
@@ -329,7 +384,7 @@ public class OrderMatchingEngine {
 
             if (quantity > 0) {
                 executeTransaction(sellOrder, buyOrder, instrumentId, quantity, price,
-                                 LocalTime.of(9, 30, 0));
+                                 executionTime);
 
                 if (buyOrder.getRemainingQuantity() == 0) {
                     buyIndex++;
@@ -342,16 +397,17 @@ public class OrderMatchingEngine {
             }
         }
 
-        // Add remaining orders to real-time books
-        for (int i = buyIndex; i < buyList.size(); i++) {
-            if (buyList.get(i).getRemainingQuantity() > 0) {
-                realTimeBuyBooks.get(instrumentId).offer(buyList.get(i));
+        if (carryRemainderToContinuousTrading) {
+            for (int i = buyIndex; i < buyList.size(); i++) {
+                if (buyList.get(i).getRemainingQuantity() > 0) {
+                    realTimeBuyBooks.get(instrumentId).offer(buyList.get(i));
+                }
             }
-        }
 
-        for (int i = sellIndex; i < sellList.size(); i++) {
-            if (sellList.get(i).getRemainingQuantity() > 0) {
-                realTimeSellBooks.get(instrumentId).offer(sellList.get(i));
+            for (int i = sellIndex; i < sellList.size(); i++) {
+                if (sellList.get(i).getRemainingQuantity() > 0) {
+                    realTimeSellBooks.get(instrumentId).offer(sellList.get(i));
+                }
             }
         }
     }
@@ -497,9 +553,31 @@ public class OrderMatchingEngine {
     }
 
     private void executeEveningAuctionTransactions(String instrumentId, double price) {
-        executeMorningAuctionTransactions(instrumentId, price);
-        // Update time to evening auction close
-        // (transactions are already recorded with correct logic)
+        executeAuctionTransactions(instrumentId, price, LocalTime.of(16, 10), false);
+    }
+
+    private record ClearingCandidate(
+        double price,
+        long volume,
+        long imbalance,
+        double referenceDistance
+    ) {
+        private boolean isBetterThan(ClearingCandidate other) {
+            if (other == null) {
+                return true;
+            }
+            if (volume != other.volume) {
+                return volume > other.volume;
+            }
+            if (imbalance != other.imbalance) {
+                return imbalance < other.imbalance;
+            }
+            int distanceComparison = Double.compare(referenceDistance, other.referenceDistance);
+            if (distanceComparison != 0) {
+                return distanceComparison < 0;
+            }
+            return price > other.price;
+        }
     }
 
     private void executeTransaction(Order sellOrder, Order buyOrder, String instrumentId,

@@ -92,6 +92,48 @@ class OrderMatchingEngineTest {
     }
 
     @Test
+    void auctionChoosesPriceWithMaximumExecutableVolume() {
+        List<Order> orders = List.of(
+            order("B1", "BUYER", 100, Double.MAX_VALUE, Order.Side.BUY, "09:00:00"),
+            order("B2", "BUYER", 100, 10.0, Order.Side.BUY, "09:01:00"),
+            order("S1", "SELLER", 100, 9.0, Order.Side.SELL, "09:02:00"),
+            order("S2", "SELLER2", 100, 10.0, Order.Side.SELL, "09:03:00")
+        );
+
+        engine.processOrders(orders);
+
+        assertEquals(10.0, engine.getOpenPrices().get("SIA"));
+        assertEquals(2, engine.getTransactions().size());
+        assertTrue(engine.getTransactions().stream()
+            .allMatch(transaction -> transaction.getTime().equals(LocalTime.of(9, 30))));
+    }
+
+    @Test
+    void carriesUnmatchedMorningOrdersIntoContinuousTrading() {
+        Order morningSell = order("S1", "SELLER", 100, 11.0, Order.Side.SELL, "09:00:00");
+        Order morningBuy = order("B1", "BUYER", 100, 10.0, Order.Side.BUY, "09:01:00");
+        Order laterBuy = order("B2", "BUYER", 100, 11.0, Order.Side.BUY, "10:00:00");
+
+        engine.processOrders(List.of(morningSell, morningBuy, laterBuy));
+
+        assertEquals(1, engine.getTransactions().size());
+        assertEquals(11.0, engine.getTransactions().get(0).getPrice());
+        assertEquals(LocalTime.of(10, 0), engine.getTransactions().get(0).getTime());
+    }
+
+    @Test
+    void eveningAuctionTradesAtTheOfficialCloseTime() {
+        Order sell = order("S1", "SELLER", 100, 10.0, Order.Side.SELL, "16:00:01");
+        Order buy = order("B1", "BUYER", 100, 10.0, Order.Side.BUY, "16:01:00");
+
+        engine.processOrders(List.of(sell, buy));
+
+        assertEquals(10.0, engine.getClosePrices().get("SIA"));
+        assertEquals(1, engine.getTransactions().size());
+        assertEquals(LocalTime.of(16, 10), engine.getTransactions().get(0).getTime());
+    }
+
+    @Test
     void rejectsCurrencyAndLotSizeViolations() {
         Order wrongCurrency = new Order(
             "C1", "BUYER", "USD_STOCK", 100, 10.0, Order.Side.BUY, LocalTime.of(10, 0)
