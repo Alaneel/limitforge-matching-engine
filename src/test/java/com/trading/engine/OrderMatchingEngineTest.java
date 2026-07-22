@@ -181,6 +181,33 @@ class OrderMatchingEngineTest {
         assertEquals("REJECTED-DUPLICATE ORDER ID", duplicate.getRejectionReason());
     }
 
+    @Test
+    void reservesHoldingsForOpenSellOrders() {
+        Client restrictedSeller = new Client("RESTRICTED", Set.of("SGD"), true, 1);
+        restrictedSeller.updatePosition("SIA", 100);
+        engine.shutdown();
+        engine = new OrderMatchingEngine(
+            Map.of(
+                "RESTRICTED", restrictedSeller,
+                "BUYER", new Client("BUYER", Set.of("SGD"), false, 1)
+            ),
+            Map.of("SIA", new Instrument("SIA", "SGD", 100))
+        );
+
+        Order firstSell = order(
+            "S1", "RESTRICTED", 100, 10.0, Order.Side.SELL, "10:00:00"
+        );
+        Order secondSell = order(
+            "S2", "RESTRICTED", 100, 11.0, Order.Side.SELL, "10:01:00"
+        );
+
+        engine.processOrders(List.of(firstSell, secondSell));
+
+        assertEquals(Order.Status.NEW, firstSell.getStatus());
+        assertEquals(Order.Status.REJECTED, secondSell.getStatus());
+        assertEquals("REJECTED-POSITION CHECK FAILED", secondSell.getRejectionReason());
+    }
+
     private Order order(
         String orderId,
         String clientId,

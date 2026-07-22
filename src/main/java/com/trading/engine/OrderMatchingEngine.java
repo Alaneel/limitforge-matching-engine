@@ -21,6 +21,7 @@ public class OrderMatchingEngine {
     private final List<Transaction> transactions;
     private final List<Map.Entry<String, String>> rejections;
     private final Set<String> acceptedOrderIds;
+    private final ConcurrentHashMap<PositionKey, Integer> reservedSellQuantities;
 
     // Order books for each instrument
     private final ConcurrentHashMap<String, PriorityBlockingQueue<Order>> buyOrderBooks;
@@ -43,6 +44,7 @@ public class OrderMatchingEngine {
         this.transactions = new CopyOnWriteArrayList<>();
         this.rejections = new CopyOnWriteArrayList<>();
         this.acceptedOrderIds = ConcurrentHashMap.newKeySet();
+        this.reservedSellQuantities = new ConcurrentHashMap<>();
 
         this.buyOrderBooks = new ConcurrentHashMap<>();
         this.sellOrderBooks = new ConcurrentHashMap<>();
@@ -204,7 +206,7 @@ public class OrderMatchingEngine {
         for (Order order : orders) {
             if (order.getSide() == Order.Side.BUY) {
                 buyOrderBooks.get(order.getInstrumentId()).offer(order);
-            } else {
+            } else if (reserveSellPosition(order)) {
                 sellOrderBooks.get(order.getInstrumentId()).offer(order);
             }
         }
@@ -273,13 +275,6 @@ public class OrderMatchingEngine {
 
         buyList.sort(buyOrderComparator());
         sellList.sort(sellOrderComparator());
-
-        // Filter for position check
-        sellList.removeIf(order -> {
-            Client client = clients.get(order.getClientId());
-            return client.isPositionCheck()
-                && client.getPosition(instrumentId) < order.getRemainingQuantity();
-        });
 
         if (buyList.isEmpty() || sellList.isEmpty()) {
             return 0;
@@ -367,11 +362,6 @@ public class OrderMatchingEngine {
         Order sell;
         while ((sell = sellBook.poll()) != null) {
             if (sell.isMarketOrder() || sell.getPrice() <= price) {
-                Client client = clients.get(sell.getClientId());
-                if (client.isPositionCheck()
-                    && client.getPosition(instrumentId) < sell.getRemainingQuantity()) {
-                    continue;
-                }
                 sellList.add(sell);
             } else if (carryRemainderToContinuousTrading) {
                 realTimeSellBooks.get(instrumentId).offer(sell);
@@ -434,16 +424,10 @@ public class OrderMatchingEngine {
 
                 Order order = orders.get(orderIndex++);
 
-                // Check position for sell orders
                 if (order.getSide() == Order.Side.SELL) {
-                    Client client = clients.get(order.getClientId());
-                    if (client.isPositionCheck() && client.getPosition(order.getInstrumentId()) < order.getQuantity()) {
-                        order.setRejectionReason("REJECTED-POSITION CHECK FAILED");
-                        rejections.add(Map.entry(order.getOrderId(), order.getRejectionReason()));
-                        logger.warn("Order {} rejected: position check failed", order.getOrderId());
-                        continue;
+                    if (reserveSellPosition(order)) {
+                        realTimeSellBooks.get(order.getInstrumentId()).offer(order);
                     }
-                    realTimeSellBooks.get(order.getInstrumentId()).offer(order);
                 } else {
                     realTimeBuyBooks.get(order.getInstrumentId()).offer(order);
                 }
@@ -541,9 +525,7 @@ public class OrderMatchingEngine {
             if (order.getSide() == Order.Side.BUY) {
                 buyOrderBooks.get(order.getInstrumentId()).offer(order);
             } else {
-                // Check position
-                Client client = clients.get(order.getClientId());
-                if (!client.isPositionCheck() || client.getPosition(order.getInstrumentId()) >= order.getQuantity()) {
+                if (reserveSellPosition(order)) {
                     sellOrderBooks.get(order.getInstrumentId()).offer(order);
                 }
             }
@@ -603,6 +585,7 @@ public class OrderMatchingEngine {
 
             seller.updatePosition(instrumentId, -quantity);
             buyer.updatePosition(instrumentId, quantity);
+            releaseSellReservation(sellOrder, quantity);
 
             // Record transaction
             Transaction transaction = new Transaction(
@@ -651,5 +634,41 @@ public class OrderMatchingEngine {
             executorService.shutdownNow();
             Thread.currentThread().interrupt();
         }
+    }
+
+    private boolean reserveSellPosition(Order order) {
+        Client client = clients.get(order.getClientId());
+        if (!client.isPositionCheck()) {
+            return true;
+        }
+
+        PositionKey key = new PositionKey(order.getClientId(), order.getInstrumentId());
+        int currentlyReserved = reservedSellQuantities.getOrDefault(key, 0);
+        int availablePosition = client.getPosition(order.getInstrumentId()) - currentlyReserved;
+        if (availablePosition < order.getRemainingQuantity()) {
+            order.setRejectionReason("REJECTED-POSITION CHECK FAILED");
+            rejections.add(Map.entry(order.getOrderId(), order.getRejectionReason()));
+            logger.warn("Order {} rejected: position check failed", order.getOrderId());
+            return false;
+        }
+
+        reservedSellQuantities.merge(key, order.getRemainingQuantity(), Integer::sum);
+        return true;
+    }
+
+    private void releaseSellReservation(Order order, int filledQuantity) {
+        Client client = clients.get(order.getClientId());
+        if (!client.isPositionCheck()) {
+            return;
+        }
+
+        PositionKey key = new PositionKey(order.getClientId(), order.getInstrumentId());
+        reservedSellQuantities.computeIfPresent(key, (ignored, reserved) -> {
+            int remaining = reserved - filledQuantity;
+            return remaining == 0 ? null : remaining;
+        });
+    }
+
+    private record PositionKey(String clientId, String instrumentId) {
     }
 }
