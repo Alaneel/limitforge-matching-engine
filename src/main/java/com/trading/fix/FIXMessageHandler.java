@@ -11,16 +11,16 @@ import quickfix.fix44.NewOrderSingle;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Handles incoming FIX messages and converts them to internal Order objects
  */
 public class FIXMessageHandler extends MessageCracker implements Application {
     private static final Logger logger = LoggerFactory.getLogger(FIXMessageHandler.class);
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final AtomicLong EXECUTION_SEQUENCE = new AtomicLong();
 
     private final OrderMatchingEngine engine;
     private final List<Order> pendingOrders;
@@ -76,35 +76,20 @@ public class FIXMessageHandler extends MessageCracker implements Application {
 
         String clOrdID = message.getClOrdID().getValue();
         String symbol = message.getSymbol().getValue();
-        Side side = message.getSide();
+        char fixSide = message.getSide().getValue();
         double orderQty = message.getOrderQty().getValue();
-        OrdType ordType = message.getOrdType();
 
-        boolean isMarketOrder;
-        BigDecimal price = null;
-        if (ordType.getValue() == OrdType.MARKET) {
-            isMarketOrder = true;
-        } else if (ordType.getValue() == OrdType.LIMIT) {
-            isMarketOrder = false;
-            price = BigDecimal.valueOf(message.getPrice().getValue());
-        } else {
-            logger.warn("Unsupported order type: {}", ordType.getValue());
-            sendExecutionReport(sessionID, clOrdID, symbol, ExecType.REJECTED, "Unsupported order type");
+        final Order order;
+        try {
+            order = convertOrder(message, LocalTime.now());
+        } catch (IllegalArgumentException e) {
+            logger.warn("Rejected FIX order {}: {}", clOrdID, e.getMessage());
+            sendExecutionReport(
+                sessionID, clOrdID, symbol, fixSide, ExecType.REJECTED,
+                0, 0, 0, e.getMessage()
+            );
             return;
         }
-
-        // Extract client ID from message (could be in Account field or other custom field)
-        String clientId = "UNKNOWN";
-        if (message.isSetField(Account.FIELD)) {
-            clientId = message.getAccount().getValue();
-        }
-
-        Order.Side orderSide = (side.getValue() == Side.BUY) ? Order.Side.BUY : Order.Side.SELL;
-        LocalTime time = LocalTime.now();
-
-        Order order = isMarketOrder
-            ? Order.market(clOrdID, clientId, symbol, (int) orderQty, orderSide, time)
-            : Order.limit(clOrdID, clientId, symbol, (int) orderQty, price, orderSide, time);
 
         logger.info("Created order from FIX message: {}", order);
 
@@ -114,35 +99,112 @@ public class FIXMessageHandler extends MessageCracker implements Application {
         }
 
         // Send acknowledgment
-        sendExecutionReport(sessionID, clOrdID, symbol, ExecType.NEW, "Order accepted");
+        sendExecutionReport(
+            sessionID, clOrdID, symbol, fixSide, ExecType.NEW,
+            orderQty, 0, 0, "Order accepted"
+        );
+    }
+
+    Order convertOrder(NewOrderSingle message, LocalTime time) throws FieldNotFound {
+        String clOrdID = requireText(message.getClOrdID().getValue(), "ClOrdID is required");
+        String symbol = requireText(message.getSymbol().getValue(), "Symbol is required");
+        if (!message.isSetField(Account.FIELD)) {
+            throw new IllegalArgumentException("Account is required");
+        }
+        String clientId = requireText(message.getAccount().getValue(), "Account is required");
+
+        char fixSide = message.getSide().getValue();
+        Order.Side orderSide;
+        if (fixSide == Side.BUY) {
+            orderSide = Order.Side.BUY;
+        } else if (fixSide == Side.SELL) {
+            orderSide = Order.Side.SELL;
+        } else {
+            throw new IllegalArgumentException("Side must be BUY or SELL");
+        }
+
+        double rawQuantity = message.getOrderQty().getValue();
+        if (!Double.isFinite(rawQuantity)
+            || rawQuantity <= 0
+            || rawQuantity != Math.rint(rawQuantity)
+            || rawQuantity > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("OrderQty must be a positive whole number");
+        }
+        int quantity = (int) rawQuantity;
+
+        char orderType = message.getOrdType().getValue();
+        if (orderType == OrdType.MARKET) {
+            return Order.market(clOrdID, clientId, symbol, quantity, orderSide, time);
+        }
+        if (orderType == OrdType.LIMIT) {
+            if (!message.isSetField(Price.FIELD)) {
+                throw new IllegalArgumentException("Price is required for limit orders");
+            }
+            BigDecimal price = BigDecimal.valueOf(message.getPrice().getValue());
+            if (price.signum() <= 0) {
+                throw new IllegalArgumentException("Price must be greater than zero");
+            }
+            return Order.limit(clOrdID, clientId, symbol, quantity, price, orderSide, time);
+        }
+        throw new IllegalArgumentException("Unsupported order type");
+    }
+
+    private String requireText(String value, String errorMessage) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+        return value;
     }
 
     /**
      * Sends an execution report back to the client
      */
-    private void sendExecutionReport(SessionID sessionID, String clOrdID, String symbol,
-                                     char execType, String text) {
+    private void sendExecutionReport(
+        SessionID sessionID,
+        String clOrdID,
+        String symbol,
+        char side,
+        char execType,
+        double leavesQty,
+        double cumQty,
+        double avgPx,
+        String text
+    ) {
         try {
-            ExecutionReport report = new ExecutionReport(
-                new OrderID(clOrdID),
-                new ExecID(generateExecID()),
-                new ExecType(execType),
-                new OrdStatus(getOrdStatus(execType)),
-                new Side(Side.BUY),
-                new LeavesQty(0),
-                new CumQty(0),
-                new AvgPx(0)
+            ExecutionReport report = createExecutionReport(
+                clOrdID, symbol, side, execType, leavesQty, cumQty, avgPx, text
             );
-
-            report.set(new ClOrdID(clOrdID));
-            report.set(new Symbol(symbol));
-            report.set(new Text(text));
-
             Session.sendToTarget(report, sessionID);
             logger.info("Sent execution report: {}", report);
         } catch (SessionNotFound e) {
             logger.error("Session not found when sending execution report", e);
         }
+    }
+
+    ExecutionReport createExecutionReport(
+        String clOrdID,
+        String symbol,
+        char side,
+        char execType,
+        double leavesQty,
+        double cumQty,
+        double avgPx,
+        String text
+    ) {
+        ExecutionReport report = new ExecutionReport(
+            new OrderID(clOrdID),
+            new ExecID(generateExecID()),
+            new ExecType(execType),
+            new OrdStatus(getOrdStatus(execType)),
+            new Side(side),
+            new LeavesQty(leavesQty),
+            new CumQty(cumQty),
+            new AvgPx(avgPx)
+        );
+        report.set(new ClOrdID(clOrdID));
+        report.set(new Symbol(symbol));
+        report.set(new Text(text));
+        return report;
     }
 
     private char getOrdStatus(char execType) {
@@ -161,7 +223,7 @@ public class FIXMessageHandler extends MessageCracker implements Application {
     }
 
     private String generateExecID() {
-        return "EXEC-" + System.currentTimeMillis();
+        return "LIMITFORGE-" + EXECUTION_SEQUENCE.incrementAndGet();
     }
 
     /**
