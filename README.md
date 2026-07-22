@@ -10,6 +10,8 @@ LimitForge is an educational exchange simulator that processes market and limit 
 
 The repository also includes an interactive web dashboard for exploring a sample session, order-book depth, executions, and risk controls.
 
+The dashboard is backed by a deterministic JSON snapshot produced by the Java engine itself. CI regenerates the snapshot and rejects changes when the UI fixture no longer matches engine output.
+
 ## 🚀 Features
 
 - **Order Matching Engine**: Morning auction, real-time trading, and evening auction phases
@@ -36,6 +38,15 @@ cd ui
 npm ci
 npm run dev
 ```
+
+### Regenerate the dashboard session
+
+```bash
+mvn clean package
+java -Dsession.report=ui/public/session.json -jar target/limitforge-engine-1.0.0.jar
+```
+
+The exported schema includes executions, rejected orders, client positions, open price, volume, VWAP, high, and low. The committed fixture makes the demo reproducible while keeping the Java engine as its source of truth.
 
 ## 📁 Project Structure
 
@@ -90,6 +101,7 @@ The system generates three comprehensive reports:
 1. **output_exchange_report.csv** - Rejected orders with reasons
 2. **output_client_report.csv** - Final positions for each client
 3. **output_instrument_report.csv** - Trading statistics (VWAP, high/low, volume)
+4. **output_session.json** - Machine-readable session snapshot for demos and integrations
 
 ## 🔧 Requirements
 

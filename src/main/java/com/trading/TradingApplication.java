@@ -5,6 +5,7 @@ import com.trading.csv.CSVWriter;
 import com.trading.engine.OrderMatchingEngine;
 import com.trading.fix.FIXServer;
 import com.trading.model.*;
+import com.trading.report.SessionSnapshotWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +27,10 @@ public class TradingApplication {
     private static final String EXCHANGE_REPORT_FILE = "output_exchange_report.csv";
     private static final String CLIENT_REPORT_FILE = "output_client_report.csv";
     private static final String INSTRUMENT_REPORT_FILE = "output_instrument_report.csv";
+    private static final String SESSION_REPORT_FILE = System.getProperty(
+        "session.report",
+        "output_session.json"
+    );
 
     private static final String FIX_CONFIG_FILE = "src/main/resources/fix-server.cfg";
 
@@ -102,6 +107,7 @@ public class TradingApplication {
             System.out.println("  - " + EXCHANGE_REPORT_FILE);
             System.out.println("  - " + CLIENT_REPORT_FILE);
             System.out.println("  - " + INSTRUMENT_REPORT_FILE);
+            System.out.println("  - " + SESSION_REPORT_FILE);
 
         } catch (Exception e) {
             logger.error("Fatal error in trading system", e);
@@ -168,6 +174,15 @@ public class TradingApplication {
             engine.getClosePrices(),
             transactionsByInstrument,
             instrumentIds
+        );
+
+        SessionSnapshotWriter.write(
+            SESSION_REPORT_FILE,
+            engine.getTransactions(),
+            engine.getRejections(),
+            engine.getClients(),
+            engine.getOpenPrices(),
+            engine.getClosePrices()
         );
 
         logger.info("All reports generated successfully");

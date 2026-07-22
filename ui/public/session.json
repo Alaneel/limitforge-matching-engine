@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "engine": "LimitForge",
+  "source": "input_orders.csv",
+  "instrument": {
+    "id": "SIA",
+    "openPrice": 32.1,
+    "closePrice": null,
+    "totalVolume": 6800,
+    "vwap": 32.07205882352941,
+    "high": 32.2,
+    "low": 31.9
+  },
+  "executions": [
+    {
+      "sequence": 1,
+      "time": "09:30",
+      "instrument": "SIA",
+      "price": 32.1,
+      "quantity": 1000,
+      "seller": "E",
+      "buyer": "A"
+    },
+    {
+      "sequence": 2,
+      "time": "09:30",
+      "instrument": "SIA",
+      "price": 32.1,
+      "quantity": 500,
+      "seller": "B",
+      "buyer": "A"
+    },
+    {
+      "sequence": 3,
+      "time": "10:50",
+      "instrument": "SIA",
+      "price": 32.1,
+      "quantity": 4000,
+      "seller": "B",
+      "buyer": "C"
+    },
+    {
+      "sequence": 4,
+      "time": "10:50",
+      "instrument": "SIA",
+      "price": 32.2,
+      "quantity": 200,
+      "seller": "B",
+      "buyer": "C"
+    },
+    {
+      "sequence": 5,
+      "time": "11:10",
+      "instrument": "SIA",
+      "price": 32,
+      "quantity": 100,
+      "seller": "B",
+      "buyer": "C"
+    },
+    {
+      "sequence": 6,
+      "time": "13:50",
+      "instrument": "SIA",
+      "price": 31.9,
+      "quantity": 800,
+      "seller": "B",
+      "buyer": "A"
+    },
+    {
+      "sequence": 7,
+      "time": "13:50",
+      "instrument": "SIA",
+      "price": 31.9,
+      "quantity": 200,
+      "seller": "B",
+      "buyer": "E"
+    }
+  ],
+  "rejections": [
+    { "orderId": "D1", "reason": "REJECTED-MISMATCH CURRENCY"},
+    { "orderId": "B2", "reason": "REJECTED-INVALID LOT SIZE"},
+    { "orderId": "C2", "reason": "REJECTED-POSITION CHECK FAILED"}
+  ],
+  "positions": [
+    { "clientId": "A", "instrument": "SIA", "netPosition": 2300},
+    { "clientId": "B", "instrument": "SIA", "netPosition": -5800},
+    { "clientId": "C", "instrument": "SIA", "netPosition": 4300},
+    { "clientId": "E", "instrument": "SIA", "netPosition": -800}
+  ]
+}

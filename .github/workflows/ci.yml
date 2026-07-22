@@ -33,6 +33,11 @@ jobs:
       - name: Verify project
         run: mvn --batch-mode --no-transfer-progress clean verify
 
+      - name: Verify dashboard session fixture
+        run: |
+          java -Dsession.report=/tmp/limitforge-session.json -jar target/limitforge-engine-1.0.0.jar
+          cmp /tmp/limitforge-session.json ui/public/session.json
+
   dashboard:
     name: Build and test dashboard (Node 22)
     runs-on: ubuntu-latest

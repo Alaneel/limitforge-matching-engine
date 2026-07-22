@@ -34,5 +34,8 @@ test("server-renders the LimitForge dashboard", async () => {
   assert.match(html, /Order book/);
   assert.match(html, /Recent executions/);
   assert.match(html, /Client positions/);
+  assert.match(html, /Engine export loaded/);
+  assert.match(html, /Schema v<!-- -->1/);
+  assert.match(html, /7<!-- --> executions/);
   assert.doesNotMatch(html, /site-creator-vinext-starter|react-loading-skeleton/);
 });
