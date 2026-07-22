@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -67,6 +68,19 @@ class CSVReaderTest {
 
         assertTrue(exception.getMessage().contains("Time must use H:mm:ss format"));
         assertTrue(exception.getMessage().contains("line 1"));
+    }
+
+    @Test
+    void preservesDecimalPricesExactly() throws IOException {
+        Path ordersFile = write(
+            "orders.csv",
+            "Time,OrderID,Instrument,Quantity,Client,Price,Side\n"
+                + "9:30:01,A1,SIA,100,A,0.10,Buy\n"
+        );
+
+        Order order = CSVReader.readOrders(ordersFile.toString()).get(0);
+
+        assertEquals(new BigDecimal("0.10"), order.getPrice());
     }
 
     @Test

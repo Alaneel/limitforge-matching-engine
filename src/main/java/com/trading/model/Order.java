@@ -1,6 +1,8 @@
 package com.trading.model;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -12,7 +14,7 @@ public class Order {
     private final String instrumentId;
     private final int quantity;
     private final AtomicInteger remainingQuantity;
-    private final double price;
+    private final BigDecimal price;
     private final Type type;
     private final Side side;
     private final LocalTime time;
@@ -33,7 +35,15 @@ public class Order {
     }
 
     private Order(String orderId, String clientId, String instrumentId,
-                  int quantity, double price, Type type, Side side, LocalTime time) {
+                  int quantity, BigDecimal price, Type type, Side side, LocalTime time) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Order quantity must be greater than zero");
+        }
+        Objects.requireNonNull(price, "price");
+        Objects.requireNonNull(type, "type");
+        if (type == Type.LIMIT && price.signum() <= 0) {
+            throw new IllegalArgumentException("Limit price must be greater than zero");
+        }
         this.orderId = orderId;
         this.clientId = clientId;
         this.instrumentId = instrumentId;
@@ -49,11 +59,13 @@ public class Order {
 
     public static Order market(String orderId, String clientId, String instrumentId,
                                int quantity, Side side, LocalTime time) {
-        return new Order(orderId, clientId, instrumentId, quantity, 0, Type.MARKET, side, time);
+        return new Order(
+            orderId, clientId, instrumentId, quantity, BigDecimal.ZERO, Type.MARKET, side, time
+        );
     }
 
     public static Order limit(String orderId, String clientId, String instrumentId,
-                              int quantity, double price, Side side, LocalTime time) {
+                              int quantity, BigDecimal price, Side side, LocalTime time) {
         return new Order(orderId, clientId, instrumentId, quantity, price, Type.LIMIT, side, time);
     }
 
@@ -91,7 +103,7 @@ public class Order {
         return true;
     }
 
-    public double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 

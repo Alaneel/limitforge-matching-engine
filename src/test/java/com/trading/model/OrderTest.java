@@ -2,10 +2,12 @@ package com.trading.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OrderTest {
@@ -23,18 +25,18 @@ class OrderTest {
     @Test
     void createsExplicitLimitOrder() {
         Order order = Order.limit(
-            "L1", "CLIENT", "SIA", 100, 10.5, Order.Side.SELL, LocalTime.NOON
+            "L1", "CLIENT", "SIA", 100, new BigDecimal("10.5"), Order.Side.SELL, LocalTime.NOON
         );
 
         assertFalse(order.isMarketOrder());
         assertEquals(Order.Type.LIMIT, order.getType());
-        assertEquals(10.5, order.getPrice());
+        assertEquals(new BigDecimal("10.5"), order.getPrice());
     }
 
     @Test
     void tracksPartialAndCompleteFills() {
         Order order = Order.limit(
-            "L1", "CLIENT", "SIA", 200, 10.5, Order.Side.SELL, LocalTime.NOON
+            "L1", "CLIENT", "SIA", 200, new BigDecimal("10.5"), Order.Side.SELL, LocalTime.NOON
         );
 
         assertTrue(order.reduceQuantity(100));
@@ -53,5 +55,16 @@ class OrderTest {
 
         assertEquals(Order.Status.REJECTED, order.getStatus());
         assertFalse(order.isValid());
+    }
+
+    @Test
+    void rejectsNonPositiveLimitPrices() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> Order.limit(
+                "L1", "CLIENT", "SIA", 100, BigDecimal.ZERO,
+                Order.Side.BUY, LocalTime.NOON
+            )
+        );
     }
 }

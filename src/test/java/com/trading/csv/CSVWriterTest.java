@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalTime;
@@ -46,15 +47,15 @@ class CSVWriterTest {
     @Test
     void writesInstrumentStatisticsFromTransactions() throws IOException {
         List<Transaction> transactions = List.of(
-            new Transaction("S", "B", "SIA", 100, 10.0, LocalTime.NOON),
-            new Transaction("S", "B", "SIA", 300, 12.0, LocalTime.NOON)
+            new Transaction("S", "B", "SIA", 100, new BigDecimal("10.0"), LocalTime.NOON),
+            new Transaction("S", "B", "SIA", 300, new BigDecimal("12.0"), LocalTime.NOON)
         );
 
         Path output = tempDir.resolve("instruments.csv");
         CSVWriter.writeInstrumentReport(
             output.toString(),
-            Map.of("SIA", 10.0),
-            Map.of("SIA", 12.0),
+            Map.of("SIA", new BigDecimal("10.0")),
+            Map.of("SIA", new BigDecimal("12.0")),
             Map.of("SIA", transactions),
             List.of("SIA")
         );

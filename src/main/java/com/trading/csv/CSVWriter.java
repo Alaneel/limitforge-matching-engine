@@ -7,6 +7,8 @@ import org.apache.commons.csv.CSVPrinter;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,8 +60,8 @@ public final class CSVWriter {
 
     public static void writeInstrumentReport(
         String fileName,
-        Map<String, Double> openPrices,
-        Map<String, Double> closePrices,
+        Map<String, BigDecimal> openPrices,
+        Map<String, BigDecimal> closePrices,
         Map<String, List<Transaction>> transactionsByInstrument,
         List<String> instrumentIds
     ) throws IOException {
@@ -81,24 +83,22 @@ public final class CSVWriter {
                     List.of()
                 );
                 long totalVolume = transactions.stream().mapToLong(Transaction::getQuantity).sum();
-                double tradedValue = transactions.stream()
-                    .mapToDouble(transaction -> transaction.getPrice() * transaction.getQuantity())
-                    .sum();
+                BigDecimal tradedValue = transactions.stream()
+                    .map(transaction -> transaction.getPrice().multiply(
+                        BigDecimal.valueOf(transaction.getQuantity())
+                    ))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                Object vwap = totalVolume == 0 ? "" : tradedValue / totalVolume;
+                Object vwap = totalVolume == 0
+                    ? ""
+                    : tradedValue.divide(BigDecimal.valueOf(totalVolume), MathContext.DECIMAL64);
                 Object high = transactions.stream()
-                    .mapToDouble(Transaction::getPrice)
-                    .max()
-                    .stream()
-                    .boxed()
-                    .findFirst()
+                    .map(Transaction::getPrice)
+                    .max(BigDecimal::compareTo)
                     .orElse(null);
                 Object low = transactions.stream()
-                    .mapToDouble(Transaction::getPrice)
-                    .min()
-                    .stream()
-                    .boxed()
-                    .findFirst()
+                    .map(Transaction::getPrice)
+                    .min(BigDecimal::compareTo)
                     .orElse(null);
 
                 printer.printRecord(

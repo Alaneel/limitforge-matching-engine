@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +48,7 @@ class OrderMatchingEngineTest {
         List<Transaction> transactions = engine.getTransactions();
         assertEquals(1, transactions.size());
         assertEquals(100, transactions.get(0).getQuantity());
-        assertEquals(10.0, transactions.get(0).getPrice());
+        assertEquals(new BigDecimal("10.0"), transactions.get(0).getPrice());
         assertEquals(100, engine.getClients().get("BUYER").getPosition("SIA"));
         assertEquals(-100, engine.getClients().get("SELLER").getPosition("SIA"));
     }
@@ -74,7 +75,7 @@ class OrderMatchingEngineTest {
         engine.processOrders(List.of(marketSell, limitBuy));
 
         assertEquals(1, engine.getTransactions().size());
-        assertEquals(10.0, engine.getTransactions().get(0).getPrice());
+        assertEquals(new BigDecimal("10.0"), engine.getTransactions().get(0).getPrice());
         assertEquals(LocalTime.of(9, 32), engine.getTransactions().get(0).getTime());
     }
 
@@ -102,7 +103,7 @@ class OrderMatchingEngineTest {
 
         engine.processOrders(orders);
 
-        assertEquals(10.0, engine.getOpenPrices().get("SIA"));
+        assertEquals(new BigDecimal("10.0"), engine.getOpenPrices().get("SIA"));
         assertEquals(2, engine.getTransactions().size());
         assertTrue(engine.getTransactions().stream()
             .allMatch(transaction -> transaction.getTime().equals(LocalTime.of(9, 30))));
@@ -117,7 +118,7 @@ class OrderMatchingEngineTest {
         engine.processOrders(List.of(morningSell, morningBuy, laterBuy));
 
         assertEquals(1, engine.getTransactions().size());
-        assertEquals(11.0, engine.getTransactions().get(0).getPrice());
+        assertEquals(new BigDecimal("11.0"), engine.getTransactions().get(0).getPrice());
         assertEquals(LocalTime.of(10, 0), engine.getTransactions().get(0).getTime());
     }
 
@@ -128,7 +129,7 @@ class OrderMatchingEngineTest {
 
         engine.processOrders(List.of(sell, buy));
 
-        assertEquals(10.0, engine.getClosePrices().get("SIA"));
+        assertEquals(new BigDecimal("10.0"), engine.getClosePrices().get("SIA"));
         assertEquals(1, engine.getTransactions().size());
         assertEquals(LocalTime.of(16, 10), engine.getTransactions().get(0).getTime());
     }
@@ -136,7 +137,8 @@ class OrderMatchingEngineTest {
     @Test
     void rejectsCurrencyAndLotSizeViolations() {
         Order wrongCurrency = Order.limit(
-            "C1", "BUYER", "USD_STOCK", 100, 10.0, Order.Side.BUY, LocalTime.of(10, 0)
+            "C1", "BUYER", "USD_STOCK", 100, new BigDecimal("10.0"),
+            Order.Side.BUY, LocalTime.of(10, 0)
         );
         Order wrongLot = order("L1", "BUYER", 50, 10.0, Order.Side.BUY, "10:00:01");
 
@@ -221,7 +223,7 @@ class OrderMatchingEngineTest {
             clientId,
             "SIA",
             quantity,
-            price,
+            BigDecimal.valueOf(price),
             side,
             LocalTime.parse(time)
         );

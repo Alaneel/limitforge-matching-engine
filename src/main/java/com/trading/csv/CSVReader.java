@@ -9,6 +9,7 @@ import org.apache.commons.csv.CSVRecord;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -116,7 +117,7 @@ public final class CSVReader {
                         clientId,
                         instrumentId,
                         quantity,
-                        positiveDouble(record, "Price"),
+                        positiveDecimal(record, "Price"),
                         side,
                         time
                     ));
@@ -165,16 +166,16 @@ public final class CSVReader {
         }
     }
 
-    private static double positiveDouble(CSVRecord record, String column) throws IOException {
+    private static BigDecimal positiveDecimal(CSVRecord record, String column) throws IOException {
         String value = required(record, column);
         try {
-            double parsed = Double.parseDouble(value);
-            if (!Double.isFinite(parsed) || parsed <= 0) {
-                throw invalid(record, column + " must be a finite number greater than zero");
+            BigDecimal parsed = new BigDecimal(value);
+            if (parsed.signum() <= 0) {
+                throw invalid(record, column + " must be greater than zero");
             }
             return parsed;
         } catch (NumberFormatException e) {
-            throw invalid(record, column + " must be a number or Market", e);
+            throw invalid(record, column + " must be a decimal number or Market", e);
         }
     }
 

@@ -9,6 +9,7 @@ import quickfix.field.*;
 import quickfix.fix44.ExecutionReport;
 import quickfix.fix44.NewOrderSingle;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -80,12 +81,12 @@ public class FIXMessageHandler extends MessageCracker implements Application {
         OrdType ordType = message.getOrdType();
 
         boolean isMarketOrder;
-        double price = 0;
+        BigDecimal price = null;
         if (ordType.getValue() == OrdType.MARKET) {
             isMarketOrder = true;
         } else if (ordType.getValue() == OrdType.LIMIT) {
             isMarketOrder = false;
-            price = message.getPrice().getValue();
+            price = BigDecimal.valueOf(message.getPrice().getValue());
         } else {
             logger.warn("Unsupported order type: {}", ordType.getValue());
             sendExecutionReport(sessionID, clOrdID, symbol, ExecType.REJECTED, "Unsupported order type");

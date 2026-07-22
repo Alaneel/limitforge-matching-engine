@@ -4,6 +4,7 @@ import com.trading.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.*;
@@ -32,8 +33,8 @@ public class OrderMatchingEngine {
     private final ConcurrentHashMap<String, PriorityBlockingQueue<Order>> realTimeSellBooks;
 
     // Price tracking
-    private final ConcurrentHashMap<String, Double> openPrices;
-    private final ConcurrentHashMap<String, Double> closePrices;
+    private final ConcurrentHashMap<String, BigDecimal> openPrices;
+    private final ConcurrentHashMap<String, BigDecimal> closePrices;
 
     private final ExecutorService executorService;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
@@ -92,7 +93,7 @@ public class OrderMatchingEngine {
             if (a.isMarketOrder() != b.isMarketOrder()) {
                 return a.isMarketOrder() ? -1 : 1;
             }
-            int priceComparison = Double.compare(b.getPrice(), a.getPrice());
+            int priceComparison = b.getPrice().compareTo(a.getPrice());
             return priceComparison != 0 ? priceComparison : compareByTimeThenId(a, b);
         };
     }
@@ -102,7 +103,7 @@ public class OrderMatchingEngine {
             if (a.isMarketOrder() != b.isMarketOrder()) {
                 return a.isMarketOrder() ? -1 : 1;
             }
-            int priceComparison = Double.compare(a.getPrice(), b.getPrice());
+            int priceComparison = a.getPrice().compareTo(b.getPrice());
             return priceComparison != 0 ? priceComparison : compareByTimeThenId(a, b);
         };
     }
@@ -212,12 +213,12 @@ public class OrderMatchingEngine {
         }
 
         // Calculate best price for each instrument
-        Map<String, Double> bestPrices = calculateBestPrices();
+        Map<String, BigDecimal> bestPrices = calculateBestPrices();
 
         // Execute transactions at best prices
         for (String instrumentId : instruments.keySet()) {
-            Double bestPrice = bestPrices.get(instrumentId);
-            if (bestPrice != null && bestPrice > 0) {
+            BigDecimal bestPrice = bestPrices.get(instrumentId);
+            if (bestPrice != null && bestPrice.signum() > 0) {
                 executeAuctionTransactions(
                     instrumentId,
                     bestPrice,
@@ -241,14 +242,14 @@ public class OrderMatchingEngine {
         }
     }
 
-    private Map<String, Double> calculateBestPrices() {
-        Map<String, Double> bestPrices = new ConcurrentHashMap<>();
+    private Map<String, BigDecimal> calculateBestPrices() {
+        Map<String, BigDecimal> bestPrices = new ConcurrentHashMap<>();
         List<Future<?>> futures = new ArrayList<>();
 
         for (String instrumentId : instruments.keySet()) {
             futures.add(executorService.submit(() -> {
-                double bestPrice = calculateBestPriceForInstrument(instrumentId);
-                if (bestPrice > 0) {
+                BigDecimal bestPrice = calculateBestPriceForInstrument(instrumentId);
+                if (bestPrice.signum() > 0) {
                     bestPrices.put(instrumentId, bestPrice);
                 }
             }));
@@ -266,7 +267,7 @@ public class OrderMatchingEngine {
         return bestPrices;
     }
 
-    private double calculateBestPriceForInstrument(String instrumentId) {
+    private BigDecimal calculateBestPriceForInstrument(String instrumentId) {
         PriorityBlockingQueue<Order> buyBook = buyOrderBooks.get(instrumentId);
         PriorityBlockingQueue<Order> sellBook = sellOrderBooks.get(instrumentId);
 
@@ -277,10 +278,10 @@ public class OrderMatchingEngine {
         sellList.sort(sellOrderComparator());
 
         if (buyList.isEmpty() || sellList.isEmpty()) {
-            return 0;
+            return BigDecimal.ZERO;
         }
 
-        SortedSet<Double> candidatePrices = new TreeSet<>();
+        SortedSet<BigDecimal> candidatePrices = new TreeSet<>();
         buyList.stream()
             .filter(order -> !order.isMarketOrder())
             .map(Order::getPrice)
@@ -291,55 +292,57 @@ public class OrderMatchingEngine {
             .forEach(candidatePrices::add);
 
         if (candidatePrices.isEmpty()) {
-            return 0;
+            return BigDecimal.ZERO;
         }
 
-        double referencePrice = referencePriceFor(instrumentId);
+        BigDecimal referencePrice = referencePriceFor(instrumentId);
         ClearingCandidate best = null;
-        for (double candidatePrice : candidatePrices) {
+        for (BigDecimal candidatePrice : candidatePrices) {
             long buyVolume = executableBuyVolume(buyList, candidatePrice);
             long sellVolume = executableSellVolume(sellList, candidatePrice);
             ClearingCandidate candidate = new ClearingCandidate(
                 candidatePrice,
                 Math.min(buyVolume, sellVolume),
                 Math.abs(buyVolume - sellVolume),
-                referencePrice > 0 ? Math.abs(candidatePrice - referencePrice) : 0
+                referencePrice.signum() > 0
+                    ? candidatePrice.subtract(referencePrice).abs()
+                    : BigDecimal.ZERO
             );
             if (candidate.isBetterThan(best)) {
                 best = candidate;
             }
         }
 
-        return best != null && best.volume() > 0 ? best.price() : 0;
+        return best != null && best.volume() > 0 ? best.price() : BigDecimal.ZERO;
     }
 
-    private long executableBuyVolume(List<Order> orders, double price) {
+    private long executableBuyVolume(List<Order> orders, BigDecimal price) {
         return orders.stream()
-            .filter(order -> order.isMarketOrder() || order.getPrice() >= price)
+            .filter(order -> order.isMarketOrder() || order.getPrice().compareTo(price) >= 0)
             .mapToLong(Order::getRemainingQuantity)
             .sum();
     }
 
-    private long executableSellVolume(List<Order> orders, double price) {
+    private long executableSellVolume(List<Order> orders, BigDecimal price) {
         return orders.stream()
-            .filter(order -> order.isMarketOrder() || order.getPrice() <= price)
+            .filter(order -> order.isMarketOrder() || order.getPrice().compareTo(price) <= 0)
             .mapToLong(Order::getRemainingQuantity)
             .sum();
     }
 
-    private double referencePriceFor(String instrumentId) {
+    private BigDecimal referencePriceFor(String instrumentId) {
         for (int index = transactions.size() - 1; index >= 0; index--) {
             Transaction transaction = transactions.get(index);
             if (transaction.getInstrumentId().equals(instrumentId)) {
                 return transaction.getPrice();
             }
         }
-        return openPrices.getOrDefault(instrumentId, 0.0);
+        return openPrices.getOrDefault(instrumentId, BigDecimal.ZERO);
     }
 
     private void executeAuctionTransactions(
         String instrumentId,
-        double price,
+        BigDecimal price,
         LocalTime executionTime,
         boolean carryRemainderToContinuousTrading
     ) {
@@ -352,7 +355,7 @@ public class OrderMatchingEngine {
         // Collect orders that match the price
         Order buy;
         while ((buy = buyBook.poll()) != null) {
-            if (buy.isMarketOrder() || buy.getPrice() >= price) {
+            if (buy.isMarketOrder() || buy.getPrice().compareTo(price) >= 0) {
                 buyList.add(buy);
             } else if (carryRemainderToContinuousTrading) {
                 realTimeBuyBooks.get(instrumentId).offer(buy);
@@ -361,7 +364,7 @@ public class OrderMatchingEngine {
 
         Order sell;
         while ((sell = sellBook.poll()) != null) {
-            if (sell.isMarketOrder() || sell.getPrice() <= price) {
+            if (sell.isMarketOrder() || sell.getPrice().compareTo(price) <= 0) {
                 sellList.add(sell);
             } else if (carryRemainderToContinuousTrading) {
                 realTimeSellBooks.get(instrumentId).offer(sell);
@@ -456,7 +459,7 @@ public class OrderMatchingEngine {
                     sellOrder = sellBook.poll();
 
                     // Determine price and time
-                    double price;
+                    BigDecimal price;
                     LocalTime time;
 
                     if (sellOrder.isMarketOrder() && buyOrder.isMarketOrder()) {
@@ -501,7 +504,7 @@ public class OrderMatchingEngine {
     private boolean canMatch(Order buyOrder, Order sellOrder) {
         return buyOrder.isMarketOrder()
             || sellOrder.isMarketOrder()
-            || sellOrder.getPrice() <= buyOrder.getPrice();
+            || sellOrder.getPrice().compareTo(buyOrder.getPrice()) <= 0;
     }
 
     private LocalTime laterTime(Order first, Order second) {
@@ -532,26 +535,26 @@ public class OrderMatchingEngine {
         }
 
         // Calculate best prices and execute
-        Map<String, Double> bestPrices = calculateBestPrices();
+        Map<String, BigDecimal> bestPrices = calculateBestPrices();
 
         for (String instrumentId : instruments.keySet()) {
-            Double bestPrice = bestPrices.get(instrumentId);
-            if (bestPrice != null && bestPrice > 0) {
+            BigDecimal bestPrice = bestPrices.get(instrumentId);
+            if (bestPrice != null && bestPrice.signum() > 0) {
                 executeEveningAuctionTransactions(instrumentId, bestPrice);
                 closePrices.put(instrumentId, bestPrice);
             }
         }
     }
 
-    private void executeEveningAuctionTransactions(String instrumentId, double price) {
+    private void executeEveningAuctionTransactions(String instrumentId, BigDecimal price) {
         executeAuctionTransactions(instrumentId, price, LocalTime.of(16, 10), false);
     }
 
     private record ClearingCandidate(
-        double price,
+        BigDecimal price,
         long volume,
         long imbalance,
-        double referenceDistance
+        BigDecimal referenceDistance
     ) {
         private boolean isBetterThan(ClearingCandidate other) {
             if (other == null) {
@@ -563,16 +566,16 @@ public class OrderMatchingEngine {
             if (imbalance != other.imbalance) {
                 return imbalance < other.imbalance;
             }
-            int distanceComparison = Double.compare(referenceDistance, other.referenceDistance);
+            int distanceComparison = referenceDistance.compareTo(other.referenceDistance);
             if (distanceComparison != 0) {
                 return distanceComparison < 0;
             }
-            return price > other.price;
+            return price.compareTo(other.price) > 0;
         }
     }
 
     private void executeTransaction(Order sellOrder, Order buyOrder, String instrumentId,
-                                   int quantity, double price, LocalTime time) {
+                                   int quantity, BigDecimal price, LocalTime time) {
         lock.writeLock().lock();
         try {
             // Update order quantities
@@ -612,11 +615,11 @@ public class OrderMatchingEngine {
         return new ArrayList<>(rejections);
     }
 
-    public Map<String, Double> getOpenPrices() {
+    public Map<String, BigDecimal> getOpenPrices() {
         return new HashMap<>(openPrices);
     }
 
-    public Map<String, Double> getClosePrices() {
+    public Map<String, BigDecimal> getClosePrices() {
         return new HashMap<>(closePrices);
     }
 

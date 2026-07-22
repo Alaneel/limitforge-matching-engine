@@ -1,5 +1,6 @@
 package com.trading.model;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
 
 /**
@@ -10,11 +11,11 @@ public class Transaction {
     private final String toClientId;
     private final String instrumentId;
     private final int quantity;
-    private final double price;
+    private final BigDecimal price;
     private final LocalTime time;
 
     public Transaction(String fromClientId, String toClientId, String instrumentId,
-                      int quantity, double price, LocalTime time) {
+                      int quantity, BigDecimal price, LocalTime time) {
         this.fromClientId = fromClientId;
         this.toClientId = toClientId;
         this.instrumentId = instrumentId;
@@ -39,7 +40,7 @@ public class Transaction {
         return quantity;
     }
 
-    public double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 
