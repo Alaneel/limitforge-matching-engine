@@ -46,6 +46,9 @@ npm run dev
 
 # Run the local simulation API
 ./scripts/run-api.sh
+
+# Or run the API in a hardened local container
+docker compose up --build
 ```
 
 ### Regenerate the dashboard session
@@ -120,6 +123,7 @@ The system generates four reports:
 - Java 17 or higher
 - Maven 3.6 or higher
 - Node.js 22.13 or higher (dashboard only)
+- Docker with Compose support (optional API runtime)
 
 ## 📚 Documentation
 

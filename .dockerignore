@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+.vscode
+docs
+examples
+logs
+target
+ui
+*.iml
+*.log
+output_*

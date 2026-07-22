@@ -17,6 +17,16 @@ exchange gateway.
 The default address is `http://127.0.0.1:8080`. Pass a different port as the
 first argument.
 
+### Docker
+
+```bash
+docker compose up --build
+```
+
+Compose publishes the API only on the host loopback interface. The container
+runs as a non-root user with a read-only filesystem, no Linux capabilities, and
+`no-new-privileges` enabled.
+
 ## Endpoints
 
 | Method | Path | Purpose |

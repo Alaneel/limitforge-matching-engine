@@ -73,3 +73,39 @@ jobs:
 
       - name: Build and test dashboard
         run: npm test
+
+  container:
+    name: Build and smoke-test container
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Build API image
+        run: docker build --tag limitforge-api:ci .
+
+      - name: Smoke-test API image
+        run: |
+          docker run --detach --name limitforge-api-ci \
+            --read-only \
+            --tmpfs /tmp:size=64m,mode=1777 \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --publish 127.0.0.1:18080:8080 \
+            limitforge-api:ci
+          trap 'docker rm --force limitforge-api-ci' EXIT
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:18080/health; then
+              curl --fail --silent \
+                --header 'Content-Type: application/json' \
+                --data-binary @examples/simulation-request.json \
+                http://127.0.0.1:18080/api/v1/simulations \
+                | grep --quiet '"instrument":"SIA"'
+              exit $?
+            fi
+            sleep 1
+          done
+          docker logs limitforge-api-ci
+          exit 1

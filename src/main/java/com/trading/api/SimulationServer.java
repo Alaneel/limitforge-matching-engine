@@ -45,14 +45,19 @@ public final class SimulationServer {
 
     public static void main(String[] args) throws IOException {
         int port = args.length == 0 ? DEFAULT_PORT : Integer.parseInt(args[0]);
-        RunningServer server = create(port);
+        String bindAddress = System.getProperty("api.bind", "127.0.0.1");
+        RunningServer server = create(bindAddress, port);
         Runtime.getRuntime().addShutdownHook(new Thread(server::close));
         server.start();
-        System.out.printf("LimitForge simulation API listening on http://localhost:%d%n", port);
+        System.out.printf("LimitForge simulation API listening on http://%s:%d%n", bindAddress, port);
     }
 
     static RunningServer create(int port) throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+        return create("127.0.0.1", port);
+    }
+
+    private static RunningServer create(String bindAddress, int port) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress(bindAddress, port), 0);
         server.createContext("/health", exact("GET", SimulationServer::health));
         server.createContext("/api/v1/openapi.json", exact("GET", SimulationServer::openApi));
         server.createContext("/api/v1/simulations", exact("POST", SimulationServer::simulate));
