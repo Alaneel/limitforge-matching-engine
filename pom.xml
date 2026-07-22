@@ -19,6 +19,7 @@
         <quickfixj.version>2.3.1</quickfixj.version>
         <slf4j.version>2.0.9</slf4j.version>
         <logback.version>1.4.11</logback.version>
+        <jackson.version>2.21.3</jackson.version>
     </properties>
 
     <dependencies>
@@ -51,6 +52,13 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-csv</artifactId>
             <version>1.10.0</version>
+        </dependency>
+
+        <!-- JSON request/response mapping for the HTTP simulation API -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
 
         <!-- JUnit for testing -->

@@ -1,0 +1,111 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "LimitForge Simulation API",
+    "version": "1.0.0",
+    "description": "Runs isolated, batch-based matching simulations. Each request creates a fresh in-memory engine."
+  },
+  "servers": [{ "url": "http://localhost:8080" }],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Service health",
+        "responses": { "200": { "description": "Healthy" } }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "summary": "OpenAPI document",
+        "responses": { "200": { "description": "OpenAPI 3.1 document" } }
+      }
+    },
+    "/api/v1/simulations": {
+      "post": {
+        "summary": "Run an isolated matching simulation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SimulationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Simulation result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SimulationResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid request" },
+          "413": { "description": "Request exceeds a configured limit" },
+          "415": { "description": "Content-Type is not application/json" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SimulationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["clients", "instruments", "orders"],
+        "properties": {
+          "clients": { "type": "array", "items": { "$ref": "#/components/schemas/Client" } },
+          "instruments": { "type": "array", "items": { "$ref": "#/components/schemas/Instrument" } },
+          "orders": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/components/schemas/Order" } }
+        }
+      },
+      "Client": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["clientId", "currencies", "positionCheck", "rating"],
+        "properties": {
+          "clientId": { "type": "string" },
+          "currencies": { "type": "array", "items": { "type": "string" } },
+          "positionCheck": { "type": "boolean" },
+          "rating": { "type": "integer" },
+          "positions": { "type": "object", "additionalProperties": { "type": "integer" } }
+        }
+      },
+      "Instrument": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["instrumentId", "currency", "lotSize"],
+        "properties": {
+          "instrumentId": { "type": "string" },
+          "currency": { "type": "string" },
+          "lotSize": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["time", "orderId", "instrumentId", "quantity", "clientId", "type", "side"],
+        "properties": {
+          "time": { "type": "string", "format": "time" },
+          "orderId": { "type": "string" },
+          "instrumentId": { "type": "string" },
+          "quantity": { "type": "integer", "minimum": 1 },
+          "clientId": { "type": "string" },
+          "type": { "type": "string", "enum": ["MARKET", "LIMIT"] },
+          "price": { "type": "number", "exclusiveMinimum": 0 },
+          "side": { "type": "string", "enum": ["BUY", "SELL"] }
+        }
+      },
+      "SimulationResponse": {
+        "type": "object",
+        "required": ["executions", "rejections", "positions", "openPrices", "closePrices"],
+        "properties": {
+          "executions": { "type": "array", "items": { "type": "object" } },
+          "rejections": { "type": "array", "items": { "type": "object" } },
+          "positions": { "type": "array", "items": { "type": "object" } },
+          "openPrices": { "type": "object", "additionalProperties": { "type": "number" } },
+          "closePrices": { "type": "object", "additionalProperties": { "type": "number" } }
+        }
+      }
+    }
+  }
+}

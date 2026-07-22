@@ -11,7 +11,9 @@ session snapshot.
 flowchart LR
     CSV["CSV input files"] --> APP["TradingApplication"]
     FIX["FIX 4.4 client"] --> ADAPTER["QuickFIX/J adapter"]
+    HTTP["HTTP simulation client"] --> API["Stateless simulation API"]
     ADAPTER --> APP
+    API --> ENGINE
     APP --> ENGINE["OrderMatchingEngine"]
     ENGINE --> BOOKS["Per-instrument order books"]
     ENGINE --> RISK["Validation and position checks"]
@@ -111,17 +113,18 @@ distributed matching architecture.
 | `fix` | QuickFIX/J session adapter and New Order Single conversion |
 | `report` | Machine-readable dashboard snapshot |
 | `benchmark` | Reproducible end-to-end batch benchmark |
+| `api` | Isolated HTTP batch simulations and OpenAPI contract |
 | `ui` | Read-only visualization and execution replay |
 
 ## Deliberate limitations
 
 - No database, durable event log, recovery journal, or replication.
-- No REST/WebSocket order-entry or live market-data API.
+- The REST surface runs isolated batches; there is no stateful single-order or live market-data API.
 - FIX support is an experimental adapter for New Order Single messages with
   acceptance/rejection reports; it is not a complete exchange FIX gateway.
 - The dashboard consumes a committed sample snapshot, not a live engine process.
 - The benchmark excludes transport, persistence, FIX parsing, and external concurrency.
 
 These boundaries keep the project useful as a transparent reference
-implementation. The next architectural step is an event/API boundary between
-the engine and external clients, followed by persistence and recovery.
+implementation. The next architectural step is a stateful command/event
+boundary for incremental orders, followed by persistence and recovery.

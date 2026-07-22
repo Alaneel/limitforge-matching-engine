@@ -17,6 +17,15 @@ java -jar target/limitforge-engine-1.0.0.jar
 java -Dfix.enabled=true -jar target/limitforge-engine-1.0.0.jar
 ```
 
+### Local Simulation API
+
+```bash
+./scripts/run-api.sh
+```
+
+Submit `examples/simulation-request.json` as described in
+[`docs/API.md`](docs/API.md).
+
 ## 📊 Expected Output
 
 The system will:
@@ -135,5 +144,6 @@ phase, and concurrency diagrams.
 - QuickFIX/J 2.3.1 (FIX protocol)
 - Apache Commons CSV 1.10.0 (CSV parsing)
 - SLF4J + Logback (Logging)
+- Jackson 2.21.3 (API JSON mapping)
 
 All dependencies are bundled in the JAR file.

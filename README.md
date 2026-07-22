@@ -25,6 +25,7 @@ Start with the **[architecture guide](docs/ARCHITECTURE.md)** for the component 
 - **CSV Processing**: Read orders from CSV files and generate comprehensive reports
 - **Comprehensive Logging**: Full audit trail using SLF4J and Logback
 - **Reproducible Benchmarking**: Dependency-free throughput harness with environment metadata
+- **Simulation API**: Isolated batch simulations with a versioned OpenAPI 3.1 contract
 
 ## 📦 Quick Start
 
@@ -42,6 +43,9 @@ java -Dfix.enabled=true -jar target/limitforge-engine-1.0.0.jar
 cd ui
 npm ci
 npm run dev
+
+# Run the local simulation API
+./scripts/run-api.sh
 ```
 
 ### Regenerate the dashboard session
@@ -64,6 +68,7 @@ limitforge-matching-engine/
 │   ├── fix/                # Experimental QuickFIX/J input adapter
 │   ├── report/             # Deterministic JSON session export
 │   ├── benchmark/          # Reproducible throughput harness
+│   ├── api/                # Stateless HTTP simulation adapter
 │   └── TradingApplication  # Main application class
 ├── src/main/resources/
 │   ├── logback.xml         # Logging configuration
@@ -122,6 +127,7 @@ The system generates four reports:
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick reference and examples
 - **[LICENSE](LICENSE)** - License information
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System boundaries, flows, and invariants
+- **[docs/API.md](docs/API.md)** - HTTP contract, example, and operating boundaries
 - **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)** - Benchmark methodology and reproduction guide
 
 ## 🎯 Key Technologies
@@ -129,6 +135,7 @@ The system generates four reports:
 - **Java 17** - Modern Java features and APIs
 - **QuickFIX/J 2.3.1** - FIX session and message infrastructure
 - **Apache Commons CSV** - CSV parsing and generation
+- **Jackson 2.21.3** - Strict API request and response mapping
 - **SLF4J + Logback** - Comprehensive logging
 - **Maven** - Build and dependency management
 

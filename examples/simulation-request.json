@@ -1,0 +1,45 @@
+{
+  "clients": [
+    {
+      "clientId": "BUYER",
+      "currencies": ["SGD"],
+      "positionCheck": false,
+      "rating": 1
+    },
+    {
+      "clientId": "SELLER",
+      "currencies": ["SGD"],
+      "positionCheck": false,
+      "rating": 1
+    }
+  ],
+  "instruments": [
+    {
+      "instrumentId": "SIA",
+      "currency": "SGD",
+      "lotSize": 100
+    }
+  ],
+  "orders": [
+    {
+      "time": "10:00:00",
+      "orderId": "S1",
+      "instrumentId": "SIA",
+      "quantity": 100,
+      "clientId": "SELLER",
+      "type": "LIMIT",
+      "price": 32.10,
+      "side": "SELL"
+    },
+    {
+      "time": "10:00:01",
+      "orderId": "B1",
+      "instrumentId": "SIA",
+      "quantity": 100,
+      "clientId": "BUYER",
+      "type": "LIMIT",
+      "price": 32.10,
+      "side": "BUY"
+    }
+  ]
+}

@@ -10,6 +10,7 @@ A Java reference implementation of auction and continuous order matching with CS
 - **CSV Processing**: Read orders from CSV files and generate comprehensive reports
 - **Position Management**: Real-time position tracking with position check validation
 - **Logging**: Comprehensive logging using SLF4J and Logback
+- **Simulation API**: Isolated batch simulations over a local HTTP interface
 
 ## Architecture
 
@@ -24,6 +25,7 @@ com.trading
 ├── csv/                # CSV reading and writing utilities
 ├── engine/             # Order matching engine with concurrency
 ├── fix/                # FIX protocol server and message handlers
+├── api/                # HTTP simulation adapter and OpenAPI contract
 └── TradingApplication  # Main application class
 ```
 
@@ -80,6 +82,17 @@ java -Dfix.enabled=true -jar target/limitforge-engine-1.0.0.jar
 ```
 
 The FIX server will listen on port 9876 (configurable in `fix-server.cfg`).
+
+### HTTP Simulation API
+
+Run an isolated batch simulation service:
+
+```bash
+./scripts/run-api.sh
+```
+
+See [`docs/API.md`](docs/API.md) for the OpenAPI endpoint, example request,
+limits, and non-production security boundary.
 
 ## Input Files
 
