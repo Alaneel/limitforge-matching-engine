@@ -1,5 +1,9 @@
 # LimitForge
 
+[![CI](https://github.com/Alaneel/limitforge-matching-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Alaneel/limitforge-matching-engine/actions/workflows/ci.yml)
+[![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/17/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **A Java order matching engine with auction and continuous trading.**
 
 LimitForge is an educational exchange simulator that processes market and limit orders through opening auctions, price-time-priority continuous matching, and closing auctions. It also includes CSV workflows and experimental FIX 4.4 connectivity.
