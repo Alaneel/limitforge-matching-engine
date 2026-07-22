@@ -157,6 +157,14 @@ public class OrderMatchingEngine {
             Instrument instrument = instruments.get(instrumentId);
             Client client = clients.get(clientId);
 
+            // Check if client exists before applying client-specific rules
+            if (client == null) {
+                order.setRejectionReason("REJECTED-CLIENT NOT FOUND");
+                rejections.add(Map.entry(order.getOrderId(), order.getRejectionReason()));
+                logger.warn("Order {} rejected: client {} not found", order.getOrderId(), clientId);
+                continue;
+            }
+
             // Check currency compatibility
             if (!client.hasCurrency(instrument.getCurrency())) {
                 order.setRejectionReason("REJECTED-MISMATCH CURRENCY");

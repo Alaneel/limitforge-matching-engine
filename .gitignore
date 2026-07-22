@@ -51,7 +51,7 @@ proc
 proc_test
 validator
 validator_test
-csv
+/csv
 
 # Python
 __pycache__/
