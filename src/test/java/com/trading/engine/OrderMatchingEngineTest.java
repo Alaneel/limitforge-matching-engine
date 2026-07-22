@@ -168,6 +168,19 @@ class OrderMatchingEngineTest {
         assertTrue(engine.getTransactions().isEmpty());
     }
 
+    @Test
+    void rejectsDuplicateOrderIdsAcrossBatches() {
+        Order original = order("DUP-1", "BUYER", 100, 10.0, Order.Side.BUY, "10:00:00");
+        Order duplicate = order("DUP-1", "BUYER", 100, 11.0, Order.Side.BUY, "10:01:00");
+
+        engine.processOrders(List.of(original));
+        engine.processOrders(List.of(duplicate));
+
+        assertEquals(Order.Status.NEW, original.getStatus());
+        assertEquals(Order.Status.REJECTED, duplicate.getStatus());
+        assertEquals("REJECTED-DUPLICATE ORDER ID", duplicate.getRejectionReason());
+    }
+
     private Order order(
         String orderId,
         String clientId,

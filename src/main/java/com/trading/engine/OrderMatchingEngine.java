@@ -20,6 +20,7 @@ public class OrderMatchingEngine {
     private final ConcurrentHashMap<String, Instrument> instruments;
     private final List<Transaction> transactions;
     private final List<Map.Entry<String, String>> rejections;
+    private final Set<String> acceptedOrderIds;
 
     // Order books for each instrument
     private final ConcurrentHashMap<String, PriorityBlockingQueue<Order>> buyOrderBooks;
@@ -41,6 +42,7 @@ public class OrderMatchingEngine {
         this.instruments = new ConcurrentHashMap<>(instruments);
         this.transactions = new CopyOnWriteArrayList<>();
         this.rejections = new CopyOnWriteArrayList<>();
+        this.acceptedOrderIds = ConcurrentHashMap.newKeySet();
 
         this.buyOrderBooks = new ConcurrentHashMap<>();
         this.sellOrderBooks = new ConcurrentHashMap<>();
@@ -148,6 +150,13 @@ public class OrderMatchingEngine {
         for (Order order : orders) {
             String instrumentId = order.getInstrumentId();
             String clientId = order.getClientId();
+
+            if (!acceptedOrderIds.add(order.getOrderId())) {
+                order.setRejectionReason("REJECTED-DUPLICATE ORDER ID");
+                rejections.add(Map.entry(order.getOrderId(), order.getRejectionReason()));
+                logger.warn("Order {} rejected: duplicate order ID", order.getOrderId());
+                continue;
+            }
 
             // Check if instrument exists
             if (!instruments.containsKey(instrumentId)) {

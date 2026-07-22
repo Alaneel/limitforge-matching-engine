@@ -17,6 +17,7 @@ public class Order {
     private final Side side;
     private final LocalTime time;
     private volatile boolean valid;
+    private volatile Status status;
     private volatile String rejectionReason;
 
     public enum Side {
@@ -25,6 +26,10 @@ public class Order {
 
     public enum Type {
         MARKET, LIMIT
+    }
+
+    public enum Status {
+        NEW, PARTIALLY_FILLED, FILLED, REJECTED
     }
 
     private Order(String orderId, String clientId, String instrumentId,
@@ -39,6 +44,7 @@ public class Order {
         this.side = side;
         this.time = time;
         this.valid = true;
+        this.status = Status.NEW;
     }
 
     public static Order market(String orderId, String clientId, String instrumentId,
@@ -81,6 +87,7 @@ public class Order {
             }
             newValue = current - amount;
         } while (!remainingQuantity.compareAndSet(current, newValue));
+        status = newValue == 0 ? Status.FILLED : Status.PARTIALLY_FILLED;
         return true;
     }
 
@@ -108,10 +115,6 @@ public class Order {
         return valid;
     }
 
-    public void setValid(boolean valid) {
-        this.valid = valid;
-    }
-
     public String getRejectionReason() {
         return rejectionReason;
     }
@@ -119,6 +122,11 @@ public class Order {
     public void setRejectionReason(String rejectionReason) {
         this.rejectionReason = rejectionReason;
         this.valid = false;
+        this.status = Status.REJECTED;
+    }
+
+    public Status getStatus() {
+        return status;
     }
 
     public boolean isMorningAuction() {
@@ -144,6 +152,7 @@ public class Order {
                 ", price=" + (isMarketOrder() ? "Market" : price) +
                 ", side=" + side +
                 ", time=" + time +
+                ", status=" + status +
                 ", valid=" + valid +
                 '}';
     }
