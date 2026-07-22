@@ -24,12 +24,13 @@ The system will:
 2. Process morning auction (before 9:30)
 3. Execute real-time trading (9:30 - 16:00)
 4. Process evening auction (16:00 - 16:10)
-5. Generate three report files
+5. Generate four report files
 
 ### Generated Reports
 - `output_exchange_report.csv` - Rejected orders
 - `output_client_report.csv` - Final client positions
 - `output_instrument_report.csv` - Trading statistics
+- `output_session.json` - Machine-readable session snapshot
 
 ## 🎯 Key Features Demonstrated
 
@@ -40,16 +41,16 @@ The system will:
 - **Read-write locks** for transaction consistency
 
 ### FIX Protocol
-- Full FIX 4.4 support via QuickFIX/J
+- Experimental FIX 4.4 New Order Single adapter via QuickFIX/J
 - Accept New Order Single messages
-- Send Execution Reports
+- Send immediate acceptance or conversion-level rejection reports
 - Session management with heartbeats
 
 ### Order Matching
 - Price-time priority
 - Morning auction with optimal clearing price
 - Real-time continuous matching
-- Evening auction with final settlement
+- Evening auction with a final clearing-price calculation
 
 ## 📈 Sample Run Results
 
@@ -62,16 +63,16 @@ Reports generated successfully
 ### Client Positions
 | Client | Instrument | Position |
 |--------|-----------|----------|
-| A      | SIA       | +1800    |
-| B      | SIA       | -5700    |
+| A      | SIA       | +2300    |
+| B      | SIA       | -5800    |
 | C      | SIA       | +4300    |
-| E      | SIA       | -400     |
+| E      | SIA       | -800     |
 
 ### Instrument Statistics
-- Open Price: 31.9
-- Close Price: 31.8
-- Total Volume: 6700
-- VWAP: 32.06
+- Open Price: 32.1
+- Close Price: No closing execution in the sample
+- Total Volume: 6800
+- VWAP: 32.0721
 - Day High: 32.2
 - Day Low: 31.9
 
@@ -96,6 +97,9 @@ Replace the input CSV files:
 Then run the application again.
 
 ## 📚 Architecture Highlights
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for component, lifecycle,
+phase, and concurrency diagrams.
 
 ### Domain Models (src/main/java/com/trading/model/)
 - `Client.java` - Client with currencies and positions

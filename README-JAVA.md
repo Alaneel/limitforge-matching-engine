@@ -1,17 +1,20 @@
 # LimitForge - Java Implementation
 
-A high-performance trading system rewritten in Java with FIX protocol support and advanced concurrency features.
+A Java reference implementation of auction and continuous order matching with CSV workflows and an experimental FIX adapter.
 
 ## Features
 
-- **Order Matching Engine**: Multi-threaded order matching with morning auction, real-time trading, and evening auction phases
-- **FIX Protocol Support**: Full FIX 4.4 protocol implementation using QuickFIX/J
+- **Order Matching Engine**: Morning auction, continuous trading, and evening auction phases
+- **FIX Adapter**: New Order Single conversion and acceptance/rejection reports using QuickFIX/J
 - **Concurrency**: Thread-safe operations using Java's concurrent collections and ExecutorService
 - **CSV Processing**: Read orders from CSV files and generate comprehensive reports
 - **Position Management**: Real-time position tracking with position check validation
 - **Logging**: Comprehensive logging using SLF4J and Logback
 
 ## Architecture
+
+For component boundaries, order lifecycle, trading phases, invariants, and
+explicit limitations, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ### Package Structure
 
@@ -105,11 +108,12 @@ Time,OrderID,Instrument,Quantity,Client,Price,Side
 
 ## Output Files
 
-The system generates three reports:
+The system generates four reports:
 
 1. **output_exchange_report.csv**: Rejected orders with reasons
 2. **output_client_report.csv**: Final positions for each client
 3. **output_instrument_report.csv**: Trading statistics (VWAP, high/low, volume)
+4. **output_session.json**: Deterministic machine-readable session snapshot
 
 ## FIX Protocol Integration
 
@@ -185,12 +189,9 @@ Orders are rejected if:
 3. **Transaction Recording**: Write-locked to prevent race conditions
 4. **Best Price Calculation**: Parallel execution per instrument using thread pool
 
-### Performance Optimization
-
-- Lock-free atomic operations for order quantity updates
-- Read-write locks minimize contention on shared resources
-- Thread pool sized to CPU cores for optimal parallelism
-- Concurrent collections eliminate synchronization bottlenecks
+Auction clearing-price calculations are parallelized across instruments. The
+continuous matching path remains coordinated within one engine process; see
+`docs/ARCHITECTURE.md` for the exact concurrency boundaries.
 
 ## Logging
 
@@ -244,10 +245,8 @@ Configure logging in `src/main/resources/logback.xml`.
 
 ## Performance Benchmarks
 
-On a typical workstation (4 cores):
-- **Order Processing**: ~100,000 orders/second
-- **Transaction Matching**: ~50,000 matches/second
-- **FIX Message Handling**: ~10,000 messages/second
+See `docs/BENCHMARKS.md` for the reproducible workload, current reference
+result, environment metadata, and explicit limitations.
 
 ## License
 
@@ -260,7 +259,7 @@ See LICENSE file for details.
 3. **FIX Protocol**: QuickFIX/J library vs custom implementation
 4. **Type Safety**: Compile-time type checking with generics
 5. **Error Handling**: Exception-based vs return codes
-6. **Performance**: ~20% slower but more maintainable and safer
+6. **Performance**: Measured through the repository's reproducible benchmark harness
 
 ## Future Enhancements
 

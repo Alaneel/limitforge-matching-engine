@@ -14,11 +14,13 @@ The dashboard is backed by a deterministic JSON snapshot produced by the Java en
 
 The included end-to-end benchmark currently records a local reference result of approximately **822k orders/second** for a deterministic 20,000-order crossing workload. See the methodology and limitations before comparing results.
 
+Start with the **[architecture guide](docs/ARCHITECTURE.md)** for the component map, order lifecycle, trading phases, invariants, concurrency model, and current limitations.
+
 ## 🚀 Features
 
 - **Order Matching Engine**: Morning auction, real-time trading, and evening auction phases
-- **FIX Protocol Support**: Full FIX 4.4 implementation for institutional connectivity
-- **Advanced Concurrency**: Thread-safe operations using Java concurrent collections
+- **FIX Adapter**: Experimental FIX 4.4 New Order Single ingestion through QuickFIX/J
+- **Deterministic Priority**: Market priority followed by price-time ordering and stable tie-breaking
 - **Position Management**: Real-time position tracking with validation
 - **CSV Processing**: Read orders from CSV files and generate comprehensive reports
 - **Comprehensive Logging**: Full audit trail using SLF4J and Logback
@@ -59,7 +61,9 @@ limitforge-matching-engine/
 │   ├── model/              # Domain models (Client, Instrument, Order, Transaction)
 │   ├── csv/                # CSV reading and writing utilities
 │   ├── engine/             # Order matching engine with concurrency
-│   ├── fix/                # FIX protocol server and handlers
+│   ├── fix/                # Experimental QuickFIX/J input adapter
+│   ├── report/             # Deterministic JSON session export
+│   ├── benchmark/          # Reproducible throughput harness
 │   └── TradingApplication  # Main application class
 ├── src/main/resources/
 │   ├── logback.xml         # Logging configuration
@@ -99,7 +103,7 @@ Time,OrderID,Instrument,Quantity,Client,Price,Side
 
 ## 📈 Output Reports
 
-The system generates three comprehensive reports:
+The system generates four reports:
 
 1. **output_exchange_report.csv** - Rejected orders with reasons
 2. **output_client_report.csv** - Final positions for each client
@@ -117,12 +121,13 @@ The system generates three comprehensive reports:
 - **[README-JAVA.md](README-JAVA.md)** - Complete Java implementation documentation
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick reference and examples
 - **[LICENSE](LICENSE)** - License information
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System boundaries, flows, and invariants
 - **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)** - Benchmark methodology and reproduction guide
 
 ## 🎯 Key Technologies
 
 - **Java 17** - Modern Java features and APIs
-- **QuickFIX/J 2.3.1** - FIX protocol implementation
+- **QuickFIX/J 2.3.1** - FIX session and message infrastructure
 - **Apache Commons CSV** - CSV parsing and generation
 - **SLF4J + Logback** - Comprehensive logging
 - **Maven** - Build and dependency management
@@ -130,7 +135,7 @@ The system generates three comprehensive reports:
 ## 🔥 Concurrency Features
 
 - `ConcurrentHashMap` - Thread-safe client/instrument lookups
-- `PriorityBlockingQueue` - Lock-free priority order books
+- `PriorityBlockingQueue` - Thread-safe priority order books
 - `ExecutorService` - Parallel processing (CPU-bound operations)
 - `AtomicInteger` - Lock-free order quantity updates
 - `ReentrantReadWriteLock` - Transaction consistency
@@ -154,14 +159,15 @@ The system generates three comprehensive reports:
 
 ## 🌐 FIX Protocol Integration
 
-The system supports FIX 4.4 protocol for institutional order submission:
+The experimental adapter accepts a focused subset of FIX 4.4 for demonstration:
 
 - **Port**: 9876 (configurable)
 - **Message Types**: New Order Single (35=D)
-- **Execution Reports**: Sent for all order state changes
+- **Execution Reports**: Immediate acceptance or conversion-level rejection
 - **Session Management**: Automatic heartbeats and reconnection
 
-See [README-JAVA.md](README-JAVA.md) for detailed FIX configuration.
+Trade fills are recorded by the engine but are not yet routed back through the
+FIX session. See [README-JAVA.md](README-JAVA.md) for configuration.
 
 ## 🐛 Troubleshooting
 
@@ -175,11 +181,4 @@ See [README-JAVA.md](README-JAVA.md) for detailed FIX configuration.
 
 See [LICENSE](LICENSE) file for details.
 
-## 🔄 Version History
-
-- **v2.0** (Current) - Java implementation with FIX protocol and concurrency
-- **v1.0** - Original C++ implementation (deprecated)
-
----
-
-For detailed implementation information, see **[README-JAVA.md](README-JAVA.md)**
+For detailed implementation information, see **[README-JAVA.md](README-JAVA.md)**.
