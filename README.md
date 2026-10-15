@@ -1,195 +1,62 @@
 # LimitForge
 
-[![CI](https://github.com/Alaneel/limitforge-matching-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Alaneel/limitforge-matching-engine/actions/workflows/ci.yml)
-[![Java 17](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/17/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**A Java exchange simulator, with an engine-backed dashboard and batch simulation API.**
 
-**A Java order matching engine with auction and continuous trading.**
+Originally authored by **EricFan2002**. This repository extends that work with Alan Wang / Alaneel’s dashboard, deterministic session export, simulation API, benchmark tooling, and container delivery. The original **Copyright (c) 2024 EricFan2002** and [MIT license](LICENSE) are retained.
 
-LimitForge is an educational exchange simulator that processes market and limit orders through opening auctions, price-time-priority continuous matching, and closing auctions. It also includes CSV workflows and experimental FIX 4.4 connectivity.
+[Architecture](docs/ARCHITECTURE.md) · [API contract](docs/API.md) · [Benchmark method](docs/BENCHMARKS.md) · [Java implementation guide](README-JAVA.md)
 
-The repository also includes an interactive web dashboard for exploring a sample session, order-book depth, executions, and risk controls.
+## Explore an exchange session
 
-The dashboard is backed by a deterministic JSON snapshot produced by the Java engine itself. CI regenerates the snapshot and rejects changes when the UI fixture no longer matches engine output.
+The engine reads clients, instruments, and orders from CSV, processes opening auction, continuous matching, and closing auction phases, then exports executions, rejected orders, positions, and instrument statistics. The dashboard presents an exported session; its committed JSON fixture is reproducible engine output, not a live exchange feed.
 
-The included end-to-end benchmark currently records a local reference result of approximately **822k orders/second** for a deterministic 20,000-order crossing workload. See the methodology and limitations before comparing results.
+| Entry point | What to inspect |
+|---|---|
+| [Matching engine](src/main/java/com/trading/engine/OrderMatchingEngine.java) | Order priority and phase processing |
+| [Session export](src/main/java/com/trading/report/SessionSnapshotWriter.java) | Engine output consumed by the dashboard |
+| [Simulation API](src/main/java/com/trading/api/SimulationServer.java) | Isolated batch requests and JSON responses |
+| [Tests](src/test/java/com/trading) | Engine, CSV, export, API, and FIX adapter cases |
 
-Start with the **[architecture guide](docs/ARCHITECTURE.md)** for the component map, order lifecycle, trading phases, invariants, concurrency model, and current limitations.
+## Run locally
 
-## 🚀 Features
-
-- **Order Matching Engine**: Morning auction, real-time trading, and evening auction phases
-- **FIX Adapter**: Experimental FIX 4.4 New Order Single ingestion through QuickFIX/J
-- **Deterministic Priority**: Market priority followed by price-time ordering and stable tie-breaking
-- **Position Management**: Real-time position tracking with validation
-- **CSV Processing**: Read orders from CSV files and generate comprehensive reports
-- **Comprehensive Logging**: Full audit trail using SLF4J and Logback
-- **Reproducible Benchmarking**: Dependency-free throughput harness with environment metadata
-- **Simulation API**: Isolated batch simulations with a versioned OpenAPI 3.1 contract
-
-## 📦 Quick Start
+Use Java 17+, Maven 3.6+, and the repository root as the working directory. Dashboard development additionally requires Node.js 22.13+.
 
 ```bash
-# Build the project
 mvn clean package
-
-# Run the trading system
 java -jar target/limitforge-engine-1.0.0.jar
+```
 
-# Run with FIX protocol enabled
-java -Dfix.enabled=true -jar target/limitforge-engine-1.0.0.jar
+Input files are `input_clients.csv`, `input_instruments.csv`, and `input_orders.csv`. The run writes exchange, client, and instrument CSV reports plus `output_session.json`.
 
-# Run the dashboard (in another terminal)
+To refresh the dashboard fixture and start its development server:
+
+```bash
+java -Dsession.report=ui/public/session.json -jar target/limitforge-engine-1.0.0.jar
 cd ui
 npm ci
 npm run dev
-
-# Run the local simulation API
-./scripts/run-api.sh
-
-# Or run the API in a hardened local container
-docker compose up --build
 ```
 
-### Regenerate the dashboard session
+The HTTP simulation API can run separately:
 
 ```bash
-mvn clean package
-java -Dsession.report=ui/public/session.json -jar target/limitforge-engine-1.0.0.jar
+./scripts/run-api.sh
 ```
 
-The exported schema includes executions, rejected orders, client positions, open price, volume, VWAP, high, and low. The committed fixture makes the demo reproducible while keeping the Java engine as its source of truth.
+See the [request example](examples/simulation-request.json) and [API guide](docs/API.md), or run the container with `docker compose up --build`.
 
-## 📁 Project Structure
+## Measurement and boundaries
 
-```
-limitforge-matching-engine/
-├── src/main/java/com/trading/
-│   ├── model/              # Domain models (Client, Instrument, Order, Transaction)
-│   ├── csv/                # CSV reading and writing utilities
-│   ├── engine/             # Order matching engine with concurrency
-│   ├── fix/                # Experimental QuickFIX/J input adapter
-│   ├── report/             # Deterministic JSON session export
-│   ├── benchmark/          # Reproducible throughput harness
-│   ├── api/                # Stateless HTTP simulation adapter
-│   └── TradingApplication  # Main application class
-├── src/main/resources/
-│   ├── logback.xml         # Logging configuration
-│   └── fix-server.cfg      # FIX server configuration
-├── ui/                     # Interactive Next.js/vinext dashboard
-├── input_*.csv             # Input data files
-├── output_*.csv            # Generated reports
-├── pom.xml                 # Maven build configuration
-├── README-JAVA.md          # Detailed Java documentation
-└── QUICKSTART.md           # Quick reference guide
+The [benchmark harness](scripts/run-benchmark.sh) measures a deterministic, single-process batch matching workload. The documented local reference is roughly 822k orders/s for 20,000 balanced crossing orders; it excludes network transport, persistence, FIX parsing, and concurrent external clients. This is batch throughput, not per-order latency or production capacity. Environment and reproduction details belong beside the result in [BENCHMARKS.md](docs/BENCHMARKS.md).
+
+The experimental QuickFIX/J adapter accepts a focused subset of FIX 4.4 New Order Single messages. Immediate acceptance or conversion rejection reports do not represent a complete execution-report lifecycle: engine fills are not routed back through the FIX session. Enable it with:
+
+```bash
+java -Dfix.enabled=true -jar target/limitforge-engine-1.0.0.jar
 ```
 
-## 📊 Input Files
+Thread-safe collections and synchronization primitives in the implementation do not establish exchange-grade correctness or a production concurrency guarantee. Start with the [architecture and limitations](docs/ARCHITECTURE.md) before extending the matching path.
 
-The system processes three CSV input files:
+## Attribution
 
-### input_clients.csv
-Client information including currencies and position check settings
-```csv
-ClientID,Currencies,PositionCheck,Rating
-A,"USD,SGD",Y,1
-```
-
-### input_instruments.csv
-Tradable instruments with currency and lot size
-```csv
-InstrumentID,Currency,LotSize
-SIA,SGD,100
-```
-
-### input_orders.csv
-Order data with time, side, price, and quantity
-```csv
-Time,OrderID,Instrument,Quantity,Client,Price,Side
-9:00:01,A1,SIA,1500,A,Market,Buy
-```
-
-## 📈 Output Reports
-
-The system generates four reports:
-
-1. **output_exchange_report.csv** - Rejected orders with reasons
-2. **output_client_report.csv** - Final positions for each client
-3. **output_instrument_report.csv** - Trading statistics (VWAP, high/low, volume)
-4. **output_session.json** - Machine-readable session snapshot for demos and integrations
-
-## 🔧 Requirements
-
-- Java 17 or higher
-- Maven 3.6 or higher
-- Node.js 22.13 or higher (dashboard only)
-- Docker with Compose support (optional API runtime)
-
-## 📚 Documentation
-
-- **[README-JAVA.md](README-JAVA.md)** - Complete Java implementation documentation
-- **[QUICKSTART.md](QUICKSTART.md)** - Quick reference and examples
-- **[LICENSE](LICENSE)** - License information
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System boundaries, flows, and invariants
-- **[docs/API.md](docs/API.md)** - HTTP contract, example, and operating boundaries
-- **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)** - Benchmark methodology and reproduction guide
-
-## 🎯 Key Technologies
-
-- **Java 17** - Modern Java features and APIs
-- **QuickFIX/J 2.3.1** - FIX session and message infrastructure
-- **Apache Commons CSV** - CSV parsing and generation
-- **Jackson 2.21.3** - Strict API request and response mapping
-- **SLF4J + Logback** - Comprehensive logging
-- **Maven** - Build and dependency management
-
-## 🔥 Concurrency Features
-
-- `ConcurrentHashMap` - Thread-safe client/instrument lookups
-- `PriorityBlockingQueue` - Thread-safe priority order books
-- `ExecutorService` - Parallel processing (CPU-bound operations)
-- `AtomicInteger` - Lock-free order quantity updates
-- `ReentrantReadWriteLock` - Transaction consistency
-
-## 📊 Trading Phases
-
-### 1. Morning Auction (Before 9:30)
-- Collects all orders
-- Calculates optimal clearing price
-- Executes matching orders at clearing price
-
-### 2. Real-Time Trading (9:30 - 16:00)
-- Continuous order matching
-- Price-time priority
-- Immediate execution when prices cross
-
-### 3. Evening Auction (16:00 - 16:10)
-- Final order collection
-- Calculates closing price
-- Executes remaining trades
-
-## 🌐 FIX Protocol Integration
-
-The experimental adapter accepts a focused subset of FIX 4.4 for demonstration:
-
-- **Port**: 9876 (configurable)
-- **Message Types**: New Order Single (35=D)
-- **Execution Reports**: Immediate acceptance or conversion-level rejection
-- **Session Management**: Automatic heartbeats and reconnection
-
-Trade fills are recorded by the engine but are not yet routed back through the
-FIX session. See [README-JAVA.md](README-JAVA.md) for configuration.
-
-## 🐛 Troubleshooting
-
-**Port conflict**: Change `SocketAcceptPort` in `src/main/resources/fix-server.cfg`
-
-**Memory issues**: Run with more heap: `java -Xmx2g -jar target/limitforge-engine-1.0.0.jar`
-
-**CSV not found**: Ensure input CSV files are in the project root directory
-
-## 📝 License
-
-See [LICENSE](LICENSE) file for details.
-
-For detailed implementation information, see **[README-JAVA.md](README-JAVA.md)**.
+The original engine is EricFan2002’s work under MIT. Alaneel’s extension history includes dashboard (`c89a6c7`), engine session export (`981aee3`), benchmark (`8d8d38c`), simulation API (`f3ea82b`), and container delivery (`1764aa0`). These identify additions, rather than claiming sole authorship of the engine. See [LICENSE](LICENSE) for the original notice.
