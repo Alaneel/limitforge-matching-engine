@@ -41,11 +41,11 @@ public final class CSVWriter {
                 .toList();
 
             for (Client client : sortedClients) {
-                List<Map.Entry<String, Integer>> positions = new ArrayList<>(
+                List<Map.Entry<String, Long>> positions = new ArrayList<>(
                     client.getPositions().entrySet()
                 );
                 positions.sort(Map.Entry.comparingByKey());
-                for (Map.Entry<String, Integer> position : positions) {
+                for (Map.Entry<String, Long> position : positions) {
                     if (position.getValue() != 0) {
                         printer.printRecord(
                             client.getClientId(),

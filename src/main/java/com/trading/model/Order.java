@@ -90,6 +90,9 @@ public class Order {
     }
 
     public boolean reduceQuantity(int amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("Fill quantity must be greater than zero");
+        }
         int current;
         int newValue;
         do {

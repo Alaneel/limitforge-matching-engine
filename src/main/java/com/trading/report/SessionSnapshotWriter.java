@@ -179,6 +179,6 @@ public final class SessionSnapshotWriter {
             .replace("\t", "\\t");
     }
 
-    private record Position(String clientId, String instrumentId, int netPosition) {
+    private record Position(String clientId, String instrumentId, long netPosition) {
     }
 }

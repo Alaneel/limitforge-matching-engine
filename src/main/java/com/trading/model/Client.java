@@ -11,7 +11,7 @@ public class Client {
     private final Set<String> currencies;
     private final boolean positionCheck;
     private final int rating;
-    private final Map<String, Integer> positions;
+    private final Map<String, Long> positions;
 
     public Client(String clientId, Set<String> currencies, boolean positionCheck, int rating) {
         this.clientId = clientId;
@@ -37,16 +37,16 @@ public class Client {
         return rating;
     }
 
-    public Map<String, Integer> getPositions() {
+    public Map<String, Long> getPositions() {
         return positions;
     }
 
-    public int getPosition(String instrument) {
-        return positions.getOrDefault(instrument, 0);
+    public long getPosition(String instrument) {
+        return positions.getOrDefault(instrument, 0L);
     }
 
     public synchronized void updatePosition(String instrument, int delta) {
-        positions.merge(instrument, delta, Integer::sum);
+        positions.merge(instrument, (long) delta, Math::addExact);
     }
 
     public boolean hasCurrency(String currency) {

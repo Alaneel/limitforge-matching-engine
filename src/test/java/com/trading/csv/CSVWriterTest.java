@@ -45,6 +45,17 @@ class CSVWriterTest {
     }
 
     @Test
+    void writesPositionsBeyondTheIntegerRange() throws IOException {
+        Client client = new Client("A", Set.of("SGD"), false, 1);
+        client.updatePosition("SIA", Integer.MAX_VALUE);
+        client.updatePosition("SIA", 1);
+        Path output = tempDir.resolve("large-positions.csv");
+        CSVWriter.writeClientReport(output.toString(), Map.of("A", client));
+        assertEquals(List.of("ClientID,InstrumentID,NetPosition", "A,SIA,2147483648"),
+            Files.readAllLines(output));
+    }
+
+    @Test
     void writesInstrumentStatisticsFromTransactions() throws IOException {
         List<Transaction> transactions = List.of(
             new Transaction("S", "B", "SIA", 100, new BigDecimal("10.0"), LocalTime.NOON),
