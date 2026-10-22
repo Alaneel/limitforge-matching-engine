@@ -3,6 +3,8 @@ FROM maven:3.9.16-eclipse-temurin-17-noble AS build
 WORKDIR /workspace
 COPY pom.xml ./
 RUN mvn --batch-mode --no-transfer-progress dependency:go-offline
+COPY LICENSE NOTICE ./
+COPY licenses ./licenses
 COPY src ./src
 RUN mvn --batch-mode --no-transfer-progress package -DskipTests
 

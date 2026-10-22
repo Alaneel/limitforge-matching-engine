@@ -6,6 +6,8 @@ Originally authored by **EricFan2002**. This repository extends that work with A
 
 [Architecture](docs/ARCHITECTURE.md) · [API contract](docs/API.md) · [Benchmark method](docs/BENCHMARKS.md) · [Java implementation guide](README-JAVA.md)
 
+[Contributing](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md) · [Release guide](docs/RELEASING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
+
 ## Explore an exchange session
 
 The engine reads clients, instruments, and orders from CSV, processes opening auction, continuous matching, and closing auction phases, then exports executions, rejected orders, positions, and instrument statistics. The dashboard presents an exported session; its committed JSON fixture is reproducible engine output, not a live exchange feed.
@@ -47,7 +49,7 @@ See the [request example](examples/simulation-request.json) and [API guide](docs
 
 ## Measurement and boundaries
 
-The [benchmark harness](scripts/run-benchmark.sh) measures a deterministic, single-process batch matching workload. The documented local reference is roughly 822k orders/s for 20,000 balanced crossing orders; it excludes network transport, persistence, FIX parsing, and concurrent external clients. This is batch throughput, not per-order latency or production capacity. Environment and reproduction details belong beside the result in [BENCHMARKS.md](docs/BENCHMARKS.md).
+The [benchmark harness](scripts/run-benchmark.sh) measures a deterministic, single-process batch matching workload and checks its execution count. It excludes network transport, persistence, FIX parsing, and concurrent external clients. This is batch throughput, not per-order latency or production capacity. Environment, historical results, and reproduction details belong beside the result in [BENCHMARKS.md](docs/BENCHMARKS.md).
 
 The experimental QuickFIX/J adapter accepts a focused subset of FIX 4.4 New Order Single messages. Immediate acceptance or conversion rejection reports do not represent a complete execution-report lifecycle: engine fills are not routed back through the FIX session. Enable it with:
 

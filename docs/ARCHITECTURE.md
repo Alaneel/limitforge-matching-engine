@@ -87,6 +87,8 @@ available opposing limit price.
 - Quantities must be positive and conform to the instrument lot size.
 - Price priority precedes time priority; order ID is the deterministic final tie-breaker.
 - Position-checked sell orders reserve available quantity before entering a book.
+- Positions and reserved sell quantities use 64-bit integers; individual order
+  quantities remain positive 32-bit integers.
 - Each execution updates both counterparties and the transaction ledger under one write lock.
 - Reports and the dashboard fixture are deterministic for a fixed input set.
 
@@ -124,6 +126,9 @@ distributed matching architecture.
   acceptance/rejection reports; it is not a complete exchange FIX gateway.
 - The dashboard consumes a committed sample snapshot, not a live engine process.
 - The benchmark excludes transport, persistence, FIX parsing, and external concurrency.
+- If both queue heads are market orders, finding the next priced order scans
+  the affected book. This exceptional path is O(n), unlike normal queue-head
+  matching; the balanced benchmark does not characterize market-order-heavy books.
 
 These boundaries keep the project useful as a transparent reference
 implementation. The next architectural step is a stateful command/event

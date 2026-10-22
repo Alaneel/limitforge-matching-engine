@@ -21,6 +21,17 @@ class SessionSnapshotWriterTest {
     Path tempDir;
 
     @Test
+    void writesPositionsBeyondTheIntegerRange() throws Exception {
+        Client client = new Client("A", Set.of("SGD"), false, 1);
+        client.updatePosition("SIA", Integer.MAX_VALUE);
+        client.updatePosition("SIA", 1);
+        Path output = tempDir.resolve("large-positions.json");
+        SessionSnapshotWriter.write(output.toString(), List.of(), List.of(),
+            Map.of("A", client), Map.of(), Map.of());
+        assertTrue(Files.readString(output).contains("\"netPosition\": 2147483648"));
+    }
+
+    @Test
     void writesDeterministicMachineReadableSession() throws Exception {
         Client buyer = new Client("BUYER", Set.of("SGD"), false, 1);
         Client seller = new Client("SELLER", Set.of("SGD"), false, 1);

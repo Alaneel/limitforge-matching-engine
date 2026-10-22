@@ -46,13 +46,20 @@ curl --fail-with-body \
 
 The response contains executions, rejections, final non-zero positions, opening
 prices, and closing prices. Market orders omit `price`; limit orders require it.
+Order quantities and initial positions are 32-bit integers; aggregated response
+positions are 64-bit integers so cumulative fills do not wrap at 2,147,483,647.
 Times determine whether an order enters the opening auction, continuous phase,
 or closing auction.
 
 ## Request boundaries
 
 - `Content-Type` must be `application/json`.
-- Unknown JSON fields and trailing JSON values are rejected.
+- Unknown or duplicate JSON fields and trailing JSON values are rejected.
+- Null request bodies and null entries in the input arrays are rejected with
+  HTTP 400. Required fields, including `positionCheck` and `rating`, must be
+  present; JSON `null` cannot stand in for a boolean or integer.
+- JSON types are strict: quantities and positions must be integers, numeric
+  strings are not converted, and fractional quantities are never truncated.
 - Request bodies are limited to 1 MiB.
 - A request may contain at most 100,000 orders.
 - Client and instrument identifiers must be unique within a request.
@@ -72,6 +79,8 @@ Errors use a stable envelope:
 
 ## Current boundary
 
-The server binds to loopback only and has no authentication, TLS, persistence,
-rate limiting, or recovery journal. It is a local integration and demonstration
-surface, not a production exchange gateway.
+The server binds to loopback by default. The container listens on its internal
+network interface, while Compose publishes its port on host loopback only.
+There is no authentication, TLS, persistence, rate limiting, or recovery journal.
+It is a local integration and demonstration surface, not a production exchange
+gateway.

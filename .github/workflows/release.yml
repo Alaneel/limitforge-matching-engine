@@ -1,0 +1,78 @@
+name: Release candidate
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify and package release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Verify Java and dashboard
+        run: |
+          mvn --batch-mode --no-transfer-progress clean verify
+          npm ci --prefix ui
+          npm run lint --prefix ui
+          npm run typecheck --prefix ui
+          npm test --prefix ui
+      - name: Package and verify release assets
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "$REF_TYPE" == tag ]]; then
+            ./scripts/package-release.sh "$REF_NAME"
+          else
+            ./scripts/package-release.sh
+          fi
+          ./scripts/verify-distribution.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: limitforge-release
+          path: target/release/
+          if-no-files-found: error
+          retention-days: 30
+
+  draft:
+    name: Create draft release
+    if: github.ref_type == 'tag'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: limitforge-release
+          path: release-assets
+      - name: Draft tagged release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" release-assets/* \
+            --verify-tag --draft --title "LimitForge $RELEASE_TAG" \
+            --notes-file docs/RELEASE_NOTES.md

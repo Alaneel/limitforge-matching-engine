@@ -1,0 +1,2 @@
+# Preserve verbatim upstream license files, including their original whitespace.
+licenses/** whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

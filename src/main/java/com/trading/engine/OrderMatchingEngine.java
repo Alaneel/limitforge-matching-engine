@@ -22,7 +22,7 @@ public class OrderMatchingEngine {
     private final List<Transaction> transactions;
     private final List<Map.Entry<String, String>> rejections;
     private final Set<String> acceptedOrderIds;
-    private final ConcurrentHashMap<PositionKey, Integer> reservedSellQuantities;
+    private final ConcurrentHashMap<PositionKey, Long> reservedSellQuantities;
 
     // Order books for each instrument
     private final ConcurrentHashMap<String, PriorityBlockingQueue<Order>> buyOrderBooks;
@@ -118,6 +118,7 @@ public class OrderMatchingEngine {
     public void processOrders(List<Order> orders) {
         // Filter invalid orders
         List<Order> validOrders = filterOrders(orders);
+        validOrders.sort(this::compareByTimeThenId);
 
         // Group orders by phase
         List<Order> morningOrders = new ArrayList<>();
@@ -158,6 +159,13 @@ public class OrderMatchingEngine {
                 order.setRejectionReason("REJECTED-DUPLICATE ORDER ID");
                 rejections.add(Map.entry(order.getOrderId(), order.getRejectionReason()));
                 logger.warn("Order {} rejected: duplicate order ID", order.getOrderId());
+                continue;
+            }
+
+            if (order.isEveningAuctionEnd()) {
+                order.setRejectionReason("REJECTED-MARKET CLOSED");
+                rejections.add(Map.entry(order.getOrderId(), order.getRejectionReason()));
+                logger.warn("Order {} rejected: market closed", order.getOrderId());
                 continue;
             }
 
@@ -454,26 +462,37 @@ public class OrderMatchingEngine {
             Order sellOrder = sellBook.peek();
 
             if (buyOrder != null && sellOrder != null) {
+                if (buyOrder.isMarketOrder() && sellOrder.isMarketOrder()) {
+                    // Two market orders cannot establish a price. They must not hide
+                    // priced liquidity behind them on either side of the book.
+                    Order limitBuy = highestPriorityLimitOrder(buyBook);
+                    Order limitSell = highestPriorityLimitOrder(sellBook);
+                    if (limitBuy == null && limitSell == null) {
+                        continue;
+                    }
+                    if (limitSell == null
+                        || (limitBuy != null && compareByTimeThenId(limitBuy, limitSell) <= 0)) {
+                        buyOrder = limitBuy;
+                    } else {
+                        sellOrder = limitSell;
+                    }
+                }
+
                 if (canMatch(buyOrder, sellOrder)) {
-                    buyOrder = buyBook.poll();
-                    sellOrder = sellBook.poll();
+                    removeMatchedOrder(buyBook, buyOrder);
+                    removeMatchedOrder(sellBook, sellOrder);
 
                     // Determine price and time
                     BigDecimal price;
                     LocalTime time;
 
-                    if (sellOrder.isMarketOrder() && buyOrder.isMarketOrder()) {
-                        // There is no reference price for two opposing market orders.
-                        buyBook.offer(buyOrder);
-                        sellBook.offer(sellOrder);
-                        continue;
-                    } else if (sellOrder.isMarketOrder()) {
+                    if (sellOrder.isMarketOrder()) {
                         price = buyOrder.getPrice();
                         time = laterTime(buyOrder, sellOrder);
                     } else if (buyOrder.isMarketOrder()) {
                         price = sellOrder.getPrice();
                         time = laterTime(buyOrder, sellOrder);
-                    } else if (sellOrder.getTime().isBefore(buyOrder.getTime())) {
+                    } else if (compareByTimeThenId(sellOrder, buyOrder) < 0) {
                         price = sellOrder.getPrice();
                         time = buyOrder.getTime();
                     } else {
@@ -499,6 +518,21 @@ public class OrderMatchingEngine {
         }
 
         return anyMatch;
+    }
+
+    private Order highestPriorityLimitOrder(PriorityBlockingQueue<Order> book) {
+        return book.stream()
+            .filter(order -> !order.isMarketOrder())
+            .min(book.comparator())
+            .orElse(null);
+    }
+
+    private void removeMatchedOrder(PriorityBlockingQueue<Order> book, Order order) {
+        if (book.peek() == order) {
+            book.poll();
+        } else {
+            book.remove(order);
+        }
     }
 
     private boolean canMatch(Order buyOrder, Order sellOrder) {
@@ -646,8 +680,8 @@ public class OrderMatchingEngine {
         }
 
         PositionKey key = new PositionKey(order.getClientId(), order.getInstrumentId());
-        int currentlyReserved = reservedSellQuantities.getOrDefault(key, 0);
-        int availablePosition = client.getPosition(order.getInstrumentId()) - currentlyReserved;
+        long currentlyReserved = reservedSellQuantities.getOrDefault(key, 0L);
+        long availablePosition = client.getPosition(order.getInstrumentId()) - currentlyReserved;
         if (availablePosition < order.getRemainingQuantity()) {
             order.setRejectionReason("REJECTED-POSITION CHECK FAILED");
             rejections.add(Map.entry(order.getOrderId(), order.getRejectionReason()));
@@ -655,7 +689,7 @@ public class OrderMatchingEngine {
             return false;
         }
 
-        reservedSellQuantities.merge(key, order.getRemainingQuantity(), Integer::sum);
+        reservedSellQuantities.merge(key, (long) order.getRemainingQuantity(), Math::addExact);
         return true;
     }
 
@@ -667,7 +701,7 @@ public class OrderMatchingEngine {
 
         PositionKey key = new PositionKey(order.getClientId(), order.getInstrumentId());
         reservedSellQuantities.computeIfPresent(key, (ignored, reserved) -> {
-            int remaining = reserved - filledQuantity;
+            long remaining = reserved - filledQuantity;
             return remaining == 0 ? null : remaining;
         });
     }

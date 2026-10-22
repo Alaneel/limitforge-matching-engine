@@ -67,4 +67,14 @@ class OrderTest {
             )
         );
     }
+
+    @Test
+    void rejectsNonPositiveFillQuantitiesWithoutChangingState() {
+        Order order = Order.market("M1", "CLIENT", "SIA", 100, Order.Side.BUY, LocalTime.NOON);
+
+        assertThrows(IllegalArgumentException.class, () -> order.reduceQuantity(-100));
+        assertThrows(IllegalArgumentException.class, () -> order.reduceQuantity(0));
+        assertEquals(100, order.getRemainingQuantity());
+        assertEquals(Order.Status.NEW, order.getStatus());
+    }
 }

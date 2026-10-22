@@ -1,8 +1,15 @@
 package com.trading.api;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.cfg.CoercionAction;
+import com.fasterxml.jackson.databind.cfg.CoercionInputShape;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.type.LogicalType;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -24,6 +31,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -36,9 +44,18 @@ public final class SimulationServer {
     private static final Logger logger = LoggerFactory.getLogger(SimulationServer.class);
     private static final int DEFAULT_PORT = 8080;
     private static final int MAX_REQUEST_BYTES = 1_048_576;
-    private static final ObjectMapper JSON = new ObjectMapper()
+    private static final ObjectMapper JSON = JsonMapper.builder()
         .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-        .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+        .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+        .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+        .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+        .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
+        .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
+        .withCoercionConfig(LogicalType.Textual, config -> config
+            .setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
+            .setCoercion(CoercionInputShape.Float, CoercionAction.Fail)
+            .setCoercion(CoercionInputShape.Boolean, CoercionAction.Fail))
+        .build();
 
     private SimulationServer() {
     }
@@ -163,8 +180,8 @@ public final class SimulationServer {
         final Order.Type type;
         try {
             time = LocalTime.parse(input.time());
-            side = Order.Side.valueOf(input.side().toUpperCase());
-            type = Order.Type.valueOf(input.type().toUpperCase());
+            side = Order.Side.valueOf(input.side().toUpperCase(Locale.ROOT));
+            type = Order.Type.valueOf(input.type().toUpperCase(Locale.ROOT));
         } catch (DateTimeParseException | IllegalArgumentException e) {
             throw new RequestException(400, "INVALID_ORDER", "Order time, side, or type is invalid");
         }
@@ -224,6 +241,9 @@ public final class SimulationServer {
     }
 
     private static void validate(SimulationRequest request) {
+        if (request == null) {
+            throw new RequestException(400, "INVALID_REQUEST", "Request body must be an object");
+        }
         if (request.clients() == null || request.clients().isEmpty()) {
             throw new RequestException(400, "INVALID_REQUEST", "At least one client is required");
         }
@@ -237,7 +257,7 @@ public final class SimulationServer {
             throw new RequestException(413, "TOO_MANY_ORDERS", "At most 100000 orders are allowed");
         }
         for (ClientInput client : request.clients()) {
-            if (blank(client.clientId()) || client.currencies() == null
+            if (client == null || blank(client.clientId()) || client.currencies() == null
                 || client.currencies().isEmpty() || client.currencies().stream().anyMatch(SimulationServer::blank)) {
                 throw new RequestException(400, "INVALID_CLIENT", "Client ID and currencies are required");
             }
@@ -247,12 +267,13 @@ public final class SimulationServer {
             }
         }
         for (InstrumentInput instrument : request.instruments()) {
-            if (blank(instrument.instrumentId()) || blank(instrument.currency()) || instrument.lotSize() <= 0) {
+            if (instrument == null || blank(instrument.instrumentId())
+                || blank(instrument.currency()) || instrument.lotSize() <= 0) {
                 throw new RequestException(400, "INVALID_INSTRUMENT", "Instrument fields are invalid");
             }
         }
         for (OrderInput order : request.orders()) {
-            if (blank(order.time()) || blank(order.orderId()) || blank(order.instrumentId())
+            if (order == null || blank(order.time()) || blank(order.orderId()) || blank(order.instrumentId())
                 || blank(order.clientId()) || blank(order.type()) || blank(order.side())
                 || order.quantity() <= 0) {
                 throw new RequestException(400, "INVALID_ORDER", "Required order fields are invalid");
@@ -266,7 +287,7 @@ public final class SimulationServer {
 
     private static void requireJson(HttpExchange exchange) {
         String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-        if (contentType == null || !contentType.toLowerCase().startsWith("application/json")) {
+        if (contentType == null || !contentType.split(";", 2)[0].trim().equalsIgnoreCase("application/json")) {
             throw new RequestException(415, "UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json");
         }
     }
@@ -326,20 +347,22 @@ public final class SimulationServer {
     public record ClientInput(
         String clientId,
         List<String> currencies,
-        boolean positionCheck,
-        int rating,
+        @JsonProperty(required = true) boolean positionCheck,
+        @JsonProperty(required = true) int rating,
         Map<String, Integer> positions
     ) {
     }
 
-    public record InstrumentInput(String instrumentId, String currency, int lotSize) {
+    public record InstrumentInput(
+        String instrumentId, String currency, @JsonProperty(required = true) int lotSize
+    ) {
     }
 
     public record OrderInput(
         String time,
         String orderId,
         String instrumentId,
-        int quantity,
+        @JsonProperty(required = true) int quantity,
         String clientId,
         String type,
         BigDecimal price,
@@ -369,7 +392,7 @@ public final class SimulationServer {
     public record RejectionOutput(String orderId, String reason) {
     }
 
-    public record PositionOutput(String clientId, String instrument, int netPosition) {
+    public record PositionOutput(String clientId, String instrument, long netPosition) {
     }
 
     static final class RunningServer implements AutoCloseable {

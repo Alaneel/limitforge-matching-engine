@@ -210,6 +210,186 @@ class OrderMatchingEngineTest {
         assertEquals("REJECTED-POSITION CHECK FAILED", secondSell.getRejectionReason());
     }
 
+    @Test
+    void processesUnsortedContinuousOrdersChronologically() {
+        Order lateSell = order("S2", "SELLER2", 100, 9.0, Order.Side.SELL, "15:00:00");
+        Order buy = order("B1", "BUYER", 100, 11.0, Order.Side.BUY, "10:00:00");
+        Order earlySell = order("S1", "SELLER", 100, 10.0, Order.Side.SELL, "09:31:00");
+
+        engine.processOrders(List.of(lateSell, buy, earlySell));
+
+        assertEquals(1, engine.getTransactions().size());
+        Transaction execution = engine.getTransactions().get(0);
+        assertEquals("SELLER", execution.getFromClientId());
+        assertEquals(new BigDecimal("10.0"), execution.getPrice());
+        assertEquals(LocalTime.of(10, 0), execution.getTime());
+        assertEquals(100, lateSell.getRemainingQuantity());
+    }
+
+    @Test
+    void usesOrderIdToResolveRestingPriceWhenTimestampsTie() {
+        Order sell = order("A1", "SELLER", 100, 10.0, Order.Side.SELL, "10:00:00");
+        Order buy = order("B1", "BUYER", 100, 11.0, Order.Side.BUY, "10:00:00");
+
+        engine.processOrders(List.of(buy, sell));
+
+        assertEquals(1, engine.getTransactions().size());
+        assertEquals(new BigDecimal("10.0"), engine.getTransactions().get(0).getPrice());
+    }
+
+    @Test
+    void appliesPositionChecksAfterEarlierBuysEvenWhenInputIsUnsorted() {
+        Client restrictedClient = new Client("RESTRICTED", Set.of("SGD"), true, 1);
+        engine.shutdown();
+        engine = new OrderMatchingEngine(
+            Map.of(
+                "RESTRICTED", restrictedClient,
+                "BUYER", new Client("BUYER", Set.of("SGD"), false, 1),
+                "SELLER", new Client("SELLER", Set.of("SGD"), false, 1)
+            ),
+            Map.of("SIA", new Instrument("SIA", "SGD", 100))
+        );
+        Order laterSell = order("S2", "RESTRICTED", 100, 10.0, Order.Side.SELL, "11:00:00");
+        Order earlySell = order("S1", "SELLER", 100, 10.0, Order.Side.SELL, "09:31:00");
+        Order earlyBuy = order("B1", "RESTRICTED", 100, 10.0, Order.Side.BUY, "10:00:00");
+        Order laterBuy = order("B2", "BUYER", 100, 10.0, Order.Side.BUY, "12:00:00");
+
+        engine.processOrders(List.of(laterSell, laterBuy, earlyBuy, earlySell));
+
+        assertTrue(engine.getRejections().isEmpty());
+        assertEquals(2, engine.getTransactions().size());
+        assertEquals(0, restrictedClient.getPosition("SIA"));
+        assertEquals(Order.Status.FILLED, laterSell.getStatus());
+    }
+
+    @Test
+    void opposingMarketOrdersDoNotBlockIncomingLimitSell() {
+        Order marketBuy = marketOrder("B1", "BUYER", 100, Order.Side.BUY, "10:00:00");
+        Order marketSell = marketOrder("S1", "SELLER", 100, Order.Side.SELL, "10:01:00");
+        Order limitSell = order("S2", "SELLER2", 100, 10.0, Order.Side.SELL, "10:02:00");
+
+        engine.processOrders(List.of(marketBuy, marketSell, limitSell));
+
+        assertEquals(1, engine.getTransactions().size());
+        Transaction execution = engine.getTransactions().get(0);
+        assertEquals("SELLER2", execution.getFromClientId());
+        assertEquals("BUYER", execution.getToClientId());
+        assertEquals(LocalTime.of(10, 2), execution.getTime());
+        assertEquals(new BigDecimal("10.0"), execution.getPrice());
+        assertEquals(100, marketSell.getRemainingQuantity());
+    }
+
+    @Test
+    void opposingMarketOrdersDoNotBlockIncomingLimitBuy() {
+        Order marketSell = marketOrder("S1", "SELLER", 100, Order.Side.SELL, "10:00:00");
+        Order marketBuy = marketOrder("B1", "BUYER", 100, Order.Side.BUY, "10:01:00");
+        Order limitBuy = order("B2", "SELLER2", 100, 10.0, Order.Side.BUY, "10:02:00");
+
+        engine.processOrders(List.of(marketSell, marketBuy, limitBuy));
+
+        assertEquals(1, engine.getTransactions().size());
+        Transaction execution = engine.getTransactions().get(0);
+        assertEquals("SELLER", execution.getFromClientId());
+        assertEquals("SELLER2", execution.getToClientId());
+        assertEquals(LocalTime.of(10, 2), execution.getTime());
+        assertEquals(100, marketBuy.getRemainingQuantity());
+    }
+
+    @Test
+    void rejectsOrdersAtOrAfterTheClosingAuctionEnds() {
+        Order beforeClose = order("S1", "SELLER", 100, 10.0, Order.Side.SELL, "16:09:59");
+        Order atClose = order("B1", "BUYER", 100, 10.0, Order.Side.BUY, "16:10:00");
+        Order afterClose = order("B2", "BUYER", 100, 10.0, Order.Side.BUY, "17:00:00");
+
+        engine.processOrders(List.of(beforeClose, atClose, afterClose));
+
+        assertEquals(Order.Status.NEW, beforeClose.getStatus());
+        assertEquals("REJECTED-MARKET CLOSED", atClose.getRejectionReason());
+        assertEquals("REJECTED-MARKET CLOSED", afterClose.getRejectionReason());
+        assertEquals(2, engine.getRejections().size());
+        assertTrue(engine.getTransactions().isEmpty());
+    }
+
+    @Test
+    void keepsOpposingMarketOrdersUnfilledWithoutAPrice() {
+        Order buy = marketOrder("B1", "BUYER", 100, Order.Side.BUY, "10:00:00");
+        Order sell = marketOrder("S1", "SELLER", 100, Order.Side.SELL, "10:01:00");
+
+        engine.processOrders(List.of(buy, sell));
+
+        assertTrue(engine.getTransactions().isEmpty());
+        assertTrue(engine.getOpenPrices().isEmpty());
+        assertTrue(engine.getClosePrices().isEmpty());
+        assertEquals(Order.Status.NEW, buy.getStatus());
+        assertEquals(Order.Status.NEW, sell.getStatus());
+    }
+
+    @Test
+    void preservesPositionsWhenAValidFillExceedsTheIntegerRange() {
+        Client buyer = new Client("BUYER", Set.of("SGD"), false, 1);
+        buyer.updatePosition("SIA", Integer.MAX_VALUE);
+        engine.shutdown();
+        engine = new OrderMatchingEngine(
+            Map.of("BUYER", buyer, "SELLER", new Client("SELLER", Set.of("SGD"), false, 1)),
+            Map.of("SIA", new Instrument("SIA", "SGD", 1))
+        );
+
+        engine.processOrders(List.of(
+            order("S1", "SELLER", 1, 10.0, Order.Side.SELL, "10:00:00"),
+            order("B1", "BUYER", 1, 10.0, Order.Side.BUY, "10:01:00")
+        ));
+
+        assertEquals(2_147_483_648L, buyer.getPosition("SIA"));
+        assertEquals(-1L, engine.getClients().get("SELLER").getPosition("SIA"));
+        assertEquals(1, engine.getTransactions().size());
+    }
+
+    @Test
+    void accumulatesMultipleMaximumSizedFillsWithoutOverflow() {
+        engine.shutdown();
+        engine = new OrderMatchingEngine(
+            Map.of(
+                "BUYER", new Client("BUYER", Set.of("SGD"), false, 1),
+                "SELLER", new Client("SELLER", Set.of("SGD"), false, 1)
+            ),
+            Map.of("SIA", new Instrument("SIA", "SGD", 1))
+        );
+
+        engine.processOrders(List.of(
+            order("S1", "SELLER", Integer.MAX_VALUE, 10.0, Order.Side.SELL, "10:00:00"),
+            order("B1", "BUYER", Integer.MAX_VALUE, 10.0, Order.Side.BUY, "10:01:00"),
+            order("S2", "SELLER", Integer.MAX_VALUE, 10.0, Order.Side.SELL, "11:00:00"),
+            order("B2", "BUYER", Integer.MAX_VALUE, 10.0, Order.Side.BUY, "11:01:00")
+        ));
+
+        assertEquals(4_294_967_294L, engine.getClients().get("BUYER").getPosition("SIA"));
+        assertEquals(-4_294_967_294L, engine.getClients().get("SELLER").getPosition("SIA"));
+        assertEquals(2, engine.getTransactions().size());
+    }
+
+    @Test
+    void reservesLargeAggregateHoldingsWithoutOverflow() {
+        Client restricted = new Client("RESTRICTED", Set.of("SGD"), true, 1);
+        restricted.updatePosition("SIA", Integer.MAX_VALUE);
+        restricted.updatePosition("SIA", Integer.MAX_VALUE);
+        engine.shutdown();
+        engine = new OrderMatchingEngine(
+            Map.of("RESTRICTED", restricted),
+            Map.of("SIA", new Instrument("SIA", "SGD", 1))
+        );
+        Order first = order("S1", "RESTRICTED", Integer.MAX_VALUE, 10.0, Order.Side.SELL, "10:00:00");
+        Order second = order("S2", "RESTRICTED", Integer.MAX_VALUE, 11.0, Order.Side.SELL, "11:00:00");
+        Order excess = order("S3", "RESTRICTED", 1, 12.0, Order.Side.SELL, "12:00:00");
+
+        engine.processOrders(List.of(first, second, excess));
+
+        assertEquals(Order.Status.NEW, first.getStatus());
+        assertEquals(Order.Status.NEW, second.getStatus());
+        assertEquals("REJECTED-POSITION CHECK FAILED", excess.getRejectionReason());
+        assertEquals(1, engine.getRejections().size());
+        assertTrue(engine.getTransactions().isEmpty());
+    }
+
     private Order order(
         String orderId,
         String clientId,
