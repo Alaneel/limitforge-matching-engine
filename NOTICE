@@ -1,0 +1,22 @@
+LimitForge
+https://github.com/Alaneel/limitforge-matching-engine
+
+The original matching-engine project was authored by EricFan2002.
+Copyright (c) 2024 EricFan2002. The original MIT license is retained in LICENSE.
+
+Alan Wang / Alaneel maintains this independent project and its dashboard,
+deterministic session export, HTTP simulation API, benchmark, container delivery,
+and subsequent improvements. Git history records the individual contributions.
+
+This product includes software developed by
+quickfixengine.org (http://www.quickfixengine.org/).
+
+Bundled third-party dependencies retain their own licenses. Embedded dependency
+license and notice resources are preserved inside the executable JAR.
+Supplementary QuickFIX/J and Logback license files and source links are included
+in licenses/ in the runnable distribution and META-INF/limitforge/third-party/
+inside the JAR. See licenses/README.md for pinned upstream provenance.
+The bundled Logback 1.6.5 components are distributed under the EPL 2.0 option
+provided by their upstream dual license; their source is available under EPL 2.0
+at https://github.com/qos-ch/logback/tree/d1b829dcdb9fd98511c64401beb1419a9c9384aa.
+This notice does not replace those dependency licenses.

@@ -7,7 +7,9 @@ measurement of the matching path.
 
 - A fresh engine is created for every iteration.
 - An even number of balanced, crossing limit orders is generated before timing.
-- Orders alternate sell/buy at one price and produce exactly one execution per pair.
+- The input list alternates sell/buy at one price and produces one execution per
+  pair. All orders have the same timestamp; the engine's time/ID ordering groups
+  them by ID before processing. This is not an alternating live arrival stream.
 - The timed region is one complete `processOrders` call.
 - Order generation and engine shutdown are outside the timed region.
 - Every run verifies the expected execution count and zero rejections.
@@ -38,7 +40,8 @@ workload and environment are equivalent.
 
 ## Reference run
 
-A local reference run on 2026-07-22 produced the following result:
+A historical local reference run on 2026-07-22, before the chronological batch
+ordering and 64-bit position fixes, produced the following result:
 
 | Environment | Workload | Throughput | Batch p50 | Batch p95/p99 |
 | --- | ---: | ---: | ---: | ---: |
@@ -47,3 +50,8 @@ A local reference run on 2026-07-22 produced the following result:
 This number is a reproducibility aid, not a production capacity claim. It was
 measured in a local development environment, without network transport,
 persistence, FIX parsing, or concurrent external clients.
+
+The current timed path includes batch sorting. Do not present the historical
+number as current performance or compare a run on an otherwise busy host as a
+controlled regression measurement. Re-run the workload at the commit being
+evaluated and retain its JSON output with the commit ID.
