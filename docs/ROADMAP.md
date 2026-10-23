@@ -10,7 +10,8 @@ implementation sequence, not committed dates or a production trading service.
 - Java matching engine with opening and closing auctions, continuous matching,
   price-time priority, validation, and position checks.
 - CSV examples and reports, plus deterministic JSON session export.
-- Dashboard for exploring the exported session, executions, and positions.
+- Dashboard for exploring the exported session, executions, and positions,
+  plus an interactive Java-backed batch simulation lab.
 - HTTP API for isolated batch simulations with an OpenAPI contract.
 - Reproducible batch benchmark and a hardened local container configuration.
 - CI checks for Java, dashboard, fixture generation, benchmark, and container.
@@ -41,14 +42,19 @@ their workload and environment.
 Connect the dashboard to user-controlled simulation input while keeping the
 batch contract explicit.
 
-- [ ] Add editable synthetic scenarios and validation feedback in the UI.
-- [ ] Run scenarios through the simulation API and render returned results.
-- [ ] Make empty, invalid, loading, and failed-request states understandable.
-- [ ] Export and re-import scenarios so demonstrations can be reproduced.
+- [x] Add editable synthetic scenarios and validation feedback in the UI.
+- [x] Run scenarios through the simulation API and render returned results.
+- [x] Make empty, invalid, loading, and failed-request states understandable.
+- [x] Export and re-import scenarios so demonstrations can be reproduced.
 
 Completion means a user can change orders, run a complete session, and explain
 the resulting trades and rejections from the displayed data. The existing
 exported sample remains available for a static demonstration.
+
+The [Simulation Lab guide](SIMULATION_LAB.md) documents the local two-process
+setup and integration checks. A hosted dashboard still needs an explicitly
+configured, reachable Java backend; this milestone does not provision a public
+simulation service.
 
 ## 3. Stateful command and event boundary
 

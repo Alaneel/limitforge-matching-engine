@@ -66,7 +66,7 @@ public final class SimulationServer {
         RunningServer server = create(bindAddress, port);
         Runtime.getRuntime().addShutdownHook(new Thread(server::close));
         server.start();
-        System.out.printf("LimitForge simulation API listening on http://%s:%d%n", bindAddress, port);
+        System.out.printf("LimitForge simulation API listening on http://%s:%d%n", bindAddress, server.port());
     }
 
     static RunningServer create(int port) throws IOException {
