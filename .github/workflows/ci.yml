@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 permissions:
   contents: read
@@ -89,6 +88,20 @@ jobs:
 
       - name: Build and test dashboard
         run: npm test
+
+      - name: Set up Java 17 for dashboard integration
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Package the Java API
+        working-directory: .
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests
+
+      - name: Verify dashboard bridge against the Java API
+        run: npm run test:integration
 
   container:
     name: Build and smoke-test container
