@@ -33,7 +33,7 @@ const localBindingConfig = {
     : [],
 };
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ command }) => {
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= "false";
@@ -52,7 +52,14 @@ export default defineConfig(async () => {
       sites(),
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
-        config: localBindingConfig,
+        config: {
+          ...localBindingConfig,
+          // Only the development server gets a local Java backend by default.
+          // Hosted builds require an explicit runtime binding.
+          ...(command === "serve" ? {
+            vars: { SIMULATION_API_URL: process.env.SIMULATION_API_URL ?? "http://127.0.0.1:8080" },
+          } : {}),
+        },
       }),
     ],
   };

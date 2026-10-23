@@ -2,5 +2,6 @@
 declare namespace Cloudflare {
   interface Env {
     DB?: D1Database;
+    SIMULATION_API_URL?: string;
   }
 }
