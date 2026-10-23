@@ -2,6 +2,16 @@
 
 ## Unreleased — first independent release candidate
 
+### Interactive batch lab
+
+- Editable synthetic scenarios, import/export, validation feedback, and Java
+  simulation results in the dashboard.
+- Same-origin server bridge with explicit backend configuration, bounded
+  request/response bodies, credential isolation, and request deadlines.
+- Full-path integration check against the real Java API.
+- Sample price chart derived from executions and explicit illustrative depth
+  labels.
+
 ### Added
 
 - Engine-generated session export and interactive dashboard replay.

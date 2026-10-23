@@ -32,6 +32,11 @@ development server with `npm run dev` when a change needs visual inspection.
 Use `npm ci` with the committed lockfile; include intentional dependency changes
 and their lockfile update in the same pull request.
 
+After building the Java JAR and dashboard, run `npm run test:integration` from
+`ui/` to exercise the built Worker bridge against the real Java API. The test
+starts and stops its own loopback server on an ephemeral port. See the
+[Simulation Lab guide](docs/SIMULATION_LAB.md) for the complete local workflow.
+
 ## Make a focused change
 
 - Describe the observed behavior, expected behavior, and a minimal example.

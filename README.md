@@ -8,6 +8,15 @@ Originally authored by **EricFan2002**. This repository extends that work with A
 
 [Contributing](CONTRIBUTING.md) · [Roadmap](docs/ROADMAP.md) · [Release guide](docs/RELEASING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
+Use the [Simulation Lab](docs/SIMULATION_LAB.md) to edit synthetic scenarios,
+run isolated batches through the Java API, and inspect executions and rejections.
+The original exported sample remains available without a backend.
+
+![Simulation Lab showing a real Java batch with one execution and two rejected orders](docs/images/simulation-lab-results.png)
+
+*Local Simulation Lab, using the synthetic risk-control preset. Results come
+from the Java API; a hosted dashboard needs its own configured Java backend.*
+
 ## Explore an exchange session
 
 The engine reads clients, instruments, and orders from CSV, processes opening auction, continuous matching, and closing auction phases, then exports executions, rejected orders, positions, and instrument statistics. The dashboard presents an exported session; its committed JSON fixture is reproducible engine output, not a live exchange feed.
