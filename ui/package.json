@@ -46,6 +46,12 @@
     },
     "@cloudflare/vite-plugin@1.37.1": {
       "ws": "8.23.0"
+    },
+    "tsx": {
+      "esbuild": "0.28.2"
+    },
+    "vite@8.1.6": {
+      "esbuild": "0.28.2"
     }
   },
   "type": "module"
